@@ -585,7 +585,6 @@ dependencies = [
     { name = "google-adk" },
     { name = "httpx" },
     { name = "litellm" },
-    { name = "platformdirs" },
     { name = "python-dotenv" },
     { name = "rich" },
 ]
@@ -610,7 +609,6 @@ requires-dist = [
     { name = "google-adk", specifier = ">=1.23.0" },
     { name = "httpx", specifier = ">=0.27.0" },
     { name = "litellm", specifier = ">=1.40.0" },
-    { name = "platformdirs", specifier = ">=4.0.0" },
     { name = "python-dotenv", specifier = ">=1.0.0" },
     { name = "rich", specifier = ">=13.0.0" },
 ]
