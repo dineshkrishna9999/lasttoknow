@@ -20,14 +20,18 @@ import os
 from typing import Annotated
 
 import typer
-from rich.console import Console
-from rich.table import Table
 
 from devpulse import __version__
 from devpulse.config import DevPulseConfig
 from devpulse.models import ItemType
-
-console = Console()
+from devpulse.renderer import (
+    render_briefing,
+    render_error,
+    render_status,
+    render_success,
+    render_tracked_items,
+    render_warning,
+)
 
 # ──────────────────────────────────────────────
 # App setup
@@ -49,7 +53,7 @@ _config = DevPulseConfig()
 
 def _version_callback(value: bool) -> None:
     if value:
-        console.print(f"devpulse {__version__}")
+        typer.echo(f"devpulse {__version__}")
         raise typer.Exit
 
 
@@ -66,8 +70,8 @@ def _resolve_model(model_override: str | None) -> str:
     """Figure out which LLM model to use (flag → env var → config → error)."""
     model = model_override or os.environ.get("DEVPULSE_MODEL") or _config.model
     if not model:
-        console.print(
-            "[red]No model configured.[/red] Set one with:\n"
+        render_error(
+            "No model configured. Set one with:\n"
             "  devpulse config model azure/gpt-4.1\n"
             "  or set DEVPULSE_MODEL env var\n"
             "  or pass --model flag"
@@ -101,9 +105,9 @@ def track(
 
     try:
         item = _config.add_item(name, item_type, source_url=source_url, current_version=version)
-        console.print(f"[green]✓[/green] Now tracking [bold]{item.name}[/bold] ({item.item_type.value})")
+        render_success(f"Now tracking [bold]{item.name}[/bold] ({item.item_type.value})")
     except ValueError as exc:
-        console.print(f"[yellow]{exc}[/yellow]")
+        render_warning(str(exc))
 
 
 @app.command()
@@ -112,35 +116,15 @@ def untrack(
 ) -> None:
     """Stop tracking a package, repo, or topic."""
     if _config.remove_item(name):
-        console.print(f"[green]✓[/green] Stopped tracking [bold]{name}[/bold]")
+        render_success(f"Stopped tracking [bold]{name}[/bold]")
     else:
-        console.print(f"[yellow]Not tracking '{name}'[/yellow]")
+        render_warning(f"Not tracking '{name}'")
 
 
 @app.command(name="list")
 def list_items() -> None:
     """Show all tracked items."""
-    items = _config.tracked_items
-    if not items:
-        console.print("[yellow]No items tracked yet.[/yellow] Run [bold]devpulse track <package>[/bold] to start.")
-        return
-
-    table = Table(title=f"📡 DevPulse — Tracking {len(items)} items")
-    table.add_column("Name", style="bold")
-    table.add_column("Type", style="cyan")
-    table.add_column("Version", style="green")
-    table.add_column("Last Checked", style="dim")
-
-    for item in items:
-        last_checked = item.last_checked.strftime("%Y-%m-%d %H:%M") if item.last_checked else "never"
-        table.add_row(
-            item.name,
-            item.item_type.value,
-            item.current_version or "—",
-            last_checked,
-        )
-
-    console.print(table)
+    render_tracked_items(_config.tracked_items)
 
 
 # ──────────────────────────────────────────────
@@ -174,22 +158,19 @@ def brief(
 
     message = " ".join(parts)
 
-    console.print(f"[dim]Using model: {resolved_model}[/dim]")
-    console.print("[dim]Fetching data and generating briefing...[/dim]\n")
-
     # Import here to avoid loading ADK/LiteLLM on every CLI invocation
     from devpulse.agents.orchestrator import run_agent
 
     try:
         response = run_agent(model=resolved_model, message=message)
     except Exception as exc:
-        console.print(f"[red]Agent error:[/red] {exc}")
+        render_error(f"Agent error: {exc}")
         raise typer.Exit(1) from exc
 
     if raw:
         typer.echo(response)
     else:
-        console.print(response)
+        render_briefing(response, model=resolved_model)
 
     # Update last_checked for all tracked items
     for item in items:
@@ -208,18 +189,19 @@ def config_model(
     """Set the default LLM model."""
     _config.model = model_name
     _config.save_settings()
-    console.print(f"[green]✓[/green] Default model set to [bold]{model_name}[/bold]")
+    render_success(f"Default model set to [bold]{model_name}[/bold]")
 
 
 @config_app.command(name="show")
 def config_show() -> None:
     """Show current configuration."""
-    console.print(f"[bold]📡 DevPulse v{__version__}[/bold]\n")
-    console.print(f"  Config dir:    [dim]{_config.config_dir}[/dim]")
-    console.print(f"  Model:         [cyan]{_config.model or '(not set)'}[/cyan]")
-    console.print(f"  Sources:       {', '.join(_config.sources)}")
-    console.print(f"  Default days:  {_config.default_days}")
-    console.print(f"  Tracked items: {len(_config.tracked_items)}")
+    render_status(
+        config_dir=str(_config.config_dir),
+        model=_config.model,
+        sources=_config.sources,
+        default_days=_config.default_days,
+        tracked_count=len(_config.tracked_items),
+    )
 
 
 # ──────────────────────────────────────────────
@@ -231,5 +213,4 @@ def config_show() -> None:
 def status() -> None:
     """Show DevPulse status and tracked items."""
     config_show()
-    console.print()
-    list_items()
+    render_tracked_items(_config.tracked_items)
