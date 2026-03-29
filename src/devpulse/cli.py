@@ -158,13 +158,19 @@ def brief(
 
     message = " ".join(parts)
 
+    # Suppress noisy ADK/LiteLLM thread tracebacks — we handle errors ourselves
+    import logging
+
+    logging.getLogger("LiteLLM").setLevel(logging.CRITICAL)
+    logging.getLogger("google.adk").setLevel(logging.CRITICAL)
+
     # Import here to avoid loading ADK/LiteLLM on every CLI invocation
-    from devpulse.agents.orchestrator import run_agent
+    from devpulse.agents.agent import run_agent
 
     try:
         response = run_agent(model=resolved_model, message=message)
     except Exception as exc:
-        render_error(f"Agent error: {exc}")
+        render_error(str(exc))
         raise typer.Exit(1) from exc
 
     if raw:

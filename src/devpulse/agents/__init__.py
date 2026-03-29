@@ -1,16 +1,11 @@
-"""AI agents for DevPulse — powered by Google ADK + LiteLLM.
+"""DevPulse agents — powered by Google ADK + LiteLLM.
 
-The agent architecture is simple:
-
-    tools.py          → Functions the agent can call (fetch data from APIs)
-    orchestrator.py   → The agent itself (system prompt + ADK setup + runner)
-
-Usage:
-    from devpulse.agents.orchestrator import run_agent
-
-    response = run_agent(model="gpt-4o", message="Brief me on litellm")
+Structure:
+    agent.py              → DevPulseAgent class (subclasses LlmAgent)
+    _tools.py             → DevPulseTools class (get_tools() → list[FunctionTool])
+    instructions/         → Instruction constants (system prompts)
 """
 
-from devpulse.agents.orchestrator import create_agent, run_agent
+from devpulse.agents.agent import DevPulseAgent, run_agent
 
-__all__ = ["create_agent", "run_agent"]
+__all__ = ["DevPulseAgent", "run_agent"]

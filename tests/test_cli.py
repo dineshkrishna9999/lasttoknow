@@ -156,7 +156,7 @@ class TestBrief:
         config = _make_config(tmp_path)
         with (
             patch("devpulse.cli._config", config),
-            patch("devpulse.agents.orchestrator.run_agent", return_value="Test briefing response"),
+            patch("devpulse.agents.agent.run_agent", return_value="Test briefing response"),
         ):
             result = runner.invoke(app, ["brief", "--model", "gpt-4o"])
         assert result.exit_code == 0
