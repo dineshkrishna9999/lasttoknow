@@ -23,6 +23,9 @@ devpulse track litellm
 devpulse track --github BerriAI/litellm
 devpulse track --topic "AI agents"
 
+# Or auto-detect from your project
+devpulse scan                        # Reads pyproject.toml / requirements.txt
+
 # Get your personalized briefing
 devpulse brief --model gpt-4o
 ```
@@ -48,6 +51,7 @@ devpulse brief --model gpt-4o
 ## Features
 
 - **Track anything** — PyPI packages, GitHub repos, topics
+- **Auto-detect dependencies** — scans pyproject.toml / requirements.txt
 - **AI-powered briefings** — powered by Google ADK + LiteLLM
 - **Smart prioritization** — 🔴 Critical / 🟡 Important / 🟢 FYI
 - **Works with any LLM** — Azure OpenAI, OpenAI, Gemini, Claude, Ollama (local)
@@ -78,6 +82,7 @@ devpulse track litellm                  # PyPI package
 devpulse track --github BerriAI/litellm # GitHub repo
 devpulse track --topic "AI agents"      # Topic
 devpulse track litellm --version 1.40.0 # With current version
+devpulse scan                           # Auto-detect from pyproject.toml
 
 # 3. See what you're tracking
 devpulse list
@@ -175,9 +180,12 @@ src/devpulse/
 ├── config.py           # Config & tracked items (~/.devpulse/)
 ├── models.py           # Data models (dataclasses + StrEnum)
 ├── renderer.py         # Rich terminal output (panels, tables)
+├── scanner.py          # Dependency scanner (pyproject.toml, requirements.txt)
 └── agents/
-    ├── tools.py        # Tool functions (PyPI, GitHub, HN fetchers)
-    └── orchestrator.py # ADK agent (system prompt + runner)
+    ├── agent.py        # ADK agent class + runner
+    ├── _tools.py       # Tool functions (PyPI, GitHub, HN fetchers)
+    └── instructions/
+        └── briefing.py # System prompt for the briefing agent
 ```
 
 ## License

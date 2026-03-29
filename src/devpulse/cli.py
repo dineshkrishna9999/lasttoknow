@@ -27,6 +27,7 @@ from devpulse.models import ItemType
 from devpulse.renderer import (
     render_briefing,
     render_error,
+    render_scan_results,
     render_status,
     render_success,
     render_tracked_items,
@@ -119,6 +120,41 @@ def untrack(
         render_success(f"Stopped tracking [bold]{name}[/bold]")
     else:
         render_warning(f"Not tracking '{name}'")
+
+
+@app.command()
+def scan(
+    path: Annotated[str, typer.Argument(help="Path to project directory (default: current dir).")] = ".",
+) -> None:
+    """Auto-detect and track dependencies from pyproject.toml or requirements.txt."""
+    from pathlib import Path
+
+    from devpulse.scanner import scan_project
+
+    project_path = Path(path).resolve()
+    deps = scan_project(project_path)
+
+    if not deps:
+        render_warning(f"No dependencies found in {project_path}")
+        return
+
+    added = 0
+    skipped = 0
+    for dep in deps:
+        try:
+            _config.add_item(
+                dep.name,
+                ItemType.PYPI,
+                source_url=f"https://pypi.org/project/{dep.name}/",
+                current_version=dep.version,
+            )
+            render_success(f"Tracking [bold]{dep.name}[/bold]" + (f" (v{dep.version})" if dep.version else ""))
+            added += 1
+        except ValueError:
+            skipped += 1
+
+    source = "pyproject.toml" if (project_path / "pyproject.toml").exists() else "requirements.txt"
+    render_scan_results(found=len(deps), added=added, skipped=skipped, source=source)
 
 
 @app.command(name="list")

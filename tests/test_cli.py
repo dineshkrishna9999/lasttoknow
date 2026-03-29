@@ -161,3 +161,67 @@ class TestBrief:
             result = runner.invoke(app, ["brief", "--model", "gpt-4o"])
         assert result.exit_code == 0
         assert "Test briefing response" in result.output
+
+
+class TestScan:
+    """Tests for the scan command."""
+
+    def test_scan_pyproject(self, tmp_path: Path) -> None:
+        config = _make_config(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        toml = project / "pyproject.toml"
+        toml.write_text('[project]\ndependencies = [\n    "litellm>=1.40.0",\n    "rich>=13.0.0",\n]\n')
+        with patch("devpulse.cli._config", config):
+            result = runner.invoke(app, ["scan", str(project)])
+        assert result.exit_code == 0
+        assert "litellm" in result.output
+        assert "rich" in result.output
+        assert config.get_item("litellm") is not None
+        assert config.get_item("rich") is not None
+
+    def test_scan_requirements(self, tmp_path: Path) -> None:
+        config = _make_config(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        req = project / "requirements.txt"
+        req.write_text("httpx>=0.27.0\nclick>=8.0\n")
+        with patch("devpulse.cli._config", config):
+            result = runner.invoke(app, ["scan", str(project)])
+        assert result.exit_code == 0
+        assert "httpx" in result.output
+        assert "click" in result.output
+
+    def test_scan_skips_duplicates(self, tmp_path: Path) -> None:
+        config = _make_config(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        toml = project / "pyproject.toml"
+        toml.write_text('[project]\ndependencies = ["litellm>=1.40.0"]\n')
+        with patch("devpulse.cli._config", config):
+            # Track first, then scan
+            runner.invoke(app, ["track", "litellm"])
+            result = runner.invoke(app, ["scan", str(project)])
+        assert result.exit_code == 0
+        assert "already tracked" in result.output
+
+    def test_scan_empty_dir(self, tmp_path: Path) -> None:
+        config = _make_config(tmp_path)
+        project = tmp_path / "empty"
+        project.mkdir()
+        with patch("devpulse.cli._config", config):
+            result = runner.invoke(app, ["scan", str(project)])
+        assert result.exit_code == 0
+        assert "No dependencies found" in result.output
+
+    def test_scan_records_version(self, tmp_path: Path) -> None:
+        config = _make_config(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        toml = project / "pyproject.toml"
+        toml.write_text('[project]\ndependencies = ["litellm>=1.40.0"]\n')
+        with patch("devpulse.cli._config", config):
+            runner.invoke(app, ["scan", str(project)])
+        item = config.get_item("litellm")
+        assert item is not None
+        assert item.current_version == "1.40.0"

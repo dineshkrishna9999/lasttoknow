@@ -94,6 +94,14 @@ def render_warning(message: str) -> None:
     console.print(f"[yellow]{message}[/yellow]")
 
 
+def render_scan_results(found: int, added: int, skipped: int, source: str) -> None:
+    """Display scan results summary."""
+    console.print(f"\n[bold]📦 Scanned:[/bold] {source}")
+    console.print(
+        f"   Found [bold]{found}[/bold] dependencies, added [bold]{added}[/bold] new, {skipped} already tracked.\n"
+    )
+
+
 def render_error(message: str) -> None:
     """Display an error message."""
     console.print(f"[red]{message}[/red]")
