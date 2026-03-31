@@ -3,9 +3,17 @@
 ### Because being the first to know isn't luck — it's a system.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
+[![Tests](https://img.shields.io/badge/tests-130%20passing-brightgreen.svg)]()
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![uv](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/uv/main/assets/badge/v0.json)](https://github.com/astral-sh/uv)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+```
+  ╔═╗╦╦═╗╔═╗╔╦╗╔╦╗╔═╗╦╔═╔╗╔╔═╗╦ ╦
+  ╠╣ ║╠╦╝╚═╗ ║  ║ ║ ║╠╩╗║║║║ ║║║║
+  ╚  ╩╩╚═╚═╝ ╩  ╩ ╚═╝╩ ╩╝╚╝╚═╝╚╩╝
+  v0.4.0 — Never miss what matters in tech.
+```
 
 ---
 
@@ -16,6 +24,7 @@ You've been here:
 - 😤 LiteLLM shipped a **breaking change** — you found out when your prod pipeline crashed
 - 🤦 Google ADK released the exact fix you needed — **2 weeks ago**
 - 😶 A repo with **15K stars** solves your exact problem — you never heard of it
+- 🔓 A package you depend on has a **critical CVE** — you found out from Twitter, not your tooling
 - 🫠 Your colleague casually drops *"oh yeah, that was deprecated last month"*
 
 You're not lazy. You're not out of touch. **There's just too much happening and no one tool that watches YOUR stack.**
@@ -38,6 +47,7 @@ uv run firsttoknow brief --model gpt-4o          # Get your personalized briefin
 │                                                                            │
 │  🔴 CRITICAL — action needed                                              │
 │  ├── litellm 1.41.0 → Breaking: Azure auth flow changed                   │
+│  ├── 🛡️ CVE-2024-1234 (HIGH 7.5) — SQL injection in litellm <1.40.5      │
 │  └── google-adk 1.28.0 → New: Multi-agent orchestration                   │
 │                                                                            │
 │  🟡 WORTH KNOWING                                                         │
@@ -53,60 +63,50 @@ uv run firsttoknow brief --model gpt-4o          # Get your personalized briefin
 
 **No dashboards.** No browser tabs. No newsletters you'll never read. Just one command and you're the **first** to know.
 
-### Real output — tracking an npm package
+## What makes it different
 
+| Feature | FirstToKnow | Dependabot | daily.dev | GitHub Watch |
+|---------|:-----------:|:----------:|:---------:|:------------:|
+| Tracks YOUR stack | ✅ | ✅ | ❌ | ❌ |
+| Explains what changed & why | ✅ | ❌ | ❌ | ❌ |
+| CVE/vulnerability scanning | ✅ | ❌ | ❌ | ❌ |
+| Trending repos & HN/Reddit | ✅ | ❌ | ✅ | ❌ |
+| AI-prioritized (🔴 🟡 🟢) | ✅ | ❌ | ❌ | ❌ |
+| Works with any LLM | ✅ | N/A | N/A | N/A |
+| One command, full briefing | ✅ | ❌ | ❌ | ❌ |
+
+## Features
+
+### 📦 Package Tracking (PyPI + npm)
 ```bash
-$ uv run firsttoknow track --npm express
-✓ Now tracking express (npm)
-
-$ uv run firsttoknow brief
+uv run firsttoknow track litellm                  # PyPI
+uv run firsttoknow track --npm express             # npm
+uv run firsttoknow scan                            # Auto-detect from pyproject.toml / package.json
 ```
 
+### 🛡️ Security Vulnerability Scanning
+Every tracked package is checked against [OSV.dev](https://osv.dev) (Google's vulnerability database) for known CVEs. Vulnerabilities are always flagged 🔴 CRITICAL with severity levels.
+
 ```
-╭───────────────────────────────────── 🔔 FirstToKnow Briefing ──────────────────────────────────────╮
-│                                                                                                    │
-│  ## 📦 Package Updates                                                                             │
-│                                                                                                    │
-│  **express 5.2.1** — The latest version of Express is 5.2.1. This release includes ongoing         │
-│  enhancements beneath the major 5.x line, which previously introduced long-awaited improvements    │
-│  like async route handling and upgraded error middleware. 🟢                                        │
-│  [Read more](https://expressjs.com/)                                                               │
-│                                                                                                    │
-│  ## 🔥 Trending Repos                                                                              │
-│                                                                                                    │
-│  **instructkr/clawd-code** (31,349★) — A toolkit for the leaked Claude Code base, with             │
-│  automation scripts. Reflects the ongoing momentum in open AI exploitation — especially             │
-│  noteworthy for teams monitoring IP leaks and "shadow LLMs."                                       │
-│  [Read more](https://github.com/instructkr/clawd-code)                                             │
-│                                                                                                    │
-│  ## 📰 News & Discussions                                                                          │
-│                                                                                                    │
-│  **axios 1.14.1 and 0.30.4 on npm are compromised** (331 pts, 48 comments) — Two versions of      │
-│  Axios were compromised through a stolen maintainer's account, with malicious dependency            │
-│  injection found in published packages. Supply chain attacks remain rampant, highlighting the       │
-│  importance of strict CI/CD, dependency auditing, and package pinning for all JS projects.          │
-│  [Read more](https://reddit.com/r/programming/comments/1s8ct9i/)                                   │
-│                                                                                                    │
-│  ## 💡 TL;DR                                                                                       │
-│                                                                                                    │
-│  - axios (npm) suffered a supply chain compromise — dependency hygiene and ongoing vigilance        │
-│    for all open-source projects (especially in Node.js) is essential.                               │
-│  - Express is stable at 5.2.1; no urgent actions required.                                         │
-│                                                                                                    │
-╰──────────────────────────────────────── model: azure/gpt-4.1 ──────────────────────────────────────╯
+🔴 CVE-2024-1234 (CRITICAL 9.8) — Remote code execution via prompt injection
+🔴 CVE-2024-5678 (HIGH 7.5) — SQL injection in query parameter handling
 ```
 
-*Actual output from `firsttoknow brief` — not mocked, not edited.*
+No auth required. No rate limits. Covers both PyPI and npm.
 
-## Why FirstToKnow > Everything Else
+### ⏳ Live Progress Spinner
+No frozen terminal. The briefing shows what's happening in real-time:
 
-| Tool | What it does | What it doesn't do |
-|------|-------------|-------------------|
-| **Dependabot** | Bumps versions | Doesn't explain what changed or why it matters to YOU |
-| **daily.dev** | Generic news feed | Not personalized to your stack |
-| **GitHub Watch** | Notifications | Drowns you in noise, zero intelligence |
-| **Newsletters** | Curated by someone else | Not YOUR stack, stale by the time you read |
-| **🔔 FirstToKnow** | **Knows YOUR stack, fetches real-time data, AI synthesizes and prioritizes** | — |
+```
+⠋ Checking PyPI...
+⠙ Scanning for vulnerabilities...
+⠹ Fetching GitHub trending repos...
+⠸ Searching Hacker News...
+⠼ Browsing Dev.to articles...
+```
+
+### 🎨 Rich Markdown Output
+Briefings render with styled headings, **bold text**, bullet lists, and clickable terminal hyperlinks. Not raw markdown — actual formatted terminal output.
 
 ## Get Started in 60 Seconds
 
@@ -194,6 +194,10 @@ You run: firsttoknow brief
   │ npm  │ │Dev.to│ │Reddit│
   │  API │ │  API │ │ API  │
   └──────┘ └──────┘ └──────┘
+  ┌──────┐
+  │OSV   │  CVE/vulnerability scanning
+  │(free)│
+  └──────┘
               │
               ▼
    ┌─────────────────────┐
@@ -203,8 +207,8 @@ You run: firsttoknow brief
               │
               ▼
    ┌─────────────────────┐
-   │  Rich terminal      │  Beautiful panels, tables, colored output
-   │  output             │
+   │  Rich Markdown      │  Styled headings, bold, bullets, clickable links
+   │  terminal output    │
    └─────────────────────┘
 ```
 
@@ -221,20 +225,22 @@ uv run poe test         # Just tests
 uv run poe fmt          # Format code
 ```
 
+130 tests. Zero tolerance for regressions.
+
 ### Project Structure
 
 ```
 src/firsttoknow/
 ├── cli.py              # CLI commands (Typer)
 ├── config.py           # Config & persistence (~/.firsttoknow/)
-├── models.py           # Data models
-├── renderer.py         # Rich terminal output
+├── models.py           # Data models (TrackedItem, ItemType)
+├── renderer.py         # Rich terminal output (Markdown, banners, spinners)
 ├── scanner.py          # Dependency scanner (pyproject.toml, requirements.txt, package.json)
 └── agents/
-    ├── agent.py        # ADK agent + runner
-    ├── _tools.py       # API fetchers (PyPI, npm, GitHub, HN, Dev.to, Reddit)
+    ├── agent.py        # ADK agent + runner (with tool-call callbacks)
+    ├── _tools.py       # 7 API tools (PyPI, npm, GitHub, HN, Dev.to, Reddit, OSV)
     └── instructions/
-        └── briefing.py # System prompt
+        └── briefing.py # System prompt — the brain
 ```
 
 ## License

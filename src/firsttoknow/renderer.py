@@ -53,15 +53,31 @@ def render_tracked_items(items: list[TrackedItem]) -> None:
 
 
 def render_briefing(response: str, model: str) -> None:
-    """Display an agent briefing response in a rich panel with markdown rendering."""
-    panel = Panel(
-        Markdown(response, hyperlinks=True),
-        title="🔔 FirstToKnow Briefing",
-        subtitle=f"model: {model}",
-        border_style="green",
-        padding=(1, 2),
-    )
-    console.print(panel)
+    """Display an agent briefing response in a rich panel with markdown rendering.
+
+    Falls back to raw text if Markdown rendering fails (e.g. Rich unicode
+    data issue on some Python/platform combinations).
+    """
+    try:
+        content: Markdown | str = Markdown(response, hyperlinks=True)
+        panel = Panel(
+            content,
+            title="🔔 FirstToKnow Briefing",
+            subtitle=f"model: {model}",
+            border_style="green",
+            padding=(1, 2),
+        )
+        console.print(panel)
+    except Exception:
+        # Fallback: render as plain text if Markdown rendering fails
+        panel = Panel(
+            response,
+            title="🔔 FirstToKnow Briefing",
+            subtitle=f"model: {model}",
+            border_style="green",
+            padding=(1, 2),
+        )
+        console.print(panel)
 
 
 def render_status(

@@ -55,6 +55,20 @@ class TestRenderBriefing:
         assert "FirstToKnow Briefing" in output
         assert "azure/gpt-4.1" in output
 
+    def test_falls_back_on_markdown_error(self) -> None:
+        """If Markdown rendering fails, should fall back to raw text."""
+        buf = StringIO()
+        test_console = Console(file=buf, force_terminal=True, width=80)
+        with (
+            patch("firsttoknow.renderer.console", test_console),
+            patch("firsttoknow.renderer.Markdown", side_effect=Exception("unicode error")),
+        ):
+            render_briefing("## Hello\n\nFallback content", model="gpt-4o")
+        output = buf.getvalue()
+        # Should still render the content (as raw text) without crashing
+        assert "Fallback content" in output
+        assert "FirstToKnow Briefing" in output
+
 
 class TestRenderBanner:
     """Tests for the ASCII logo banner."""
