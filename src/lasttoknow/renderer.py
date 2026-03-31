@@ -1,4 +1,4 @@
-"""Rich terminal renderer for DevPulse output.
+"""Rich terminal renderer for LastToKnow output.
 
 Handles all the pretty-printing: briefing panels, tracked item tables,
 status displays. Uses the Rich library for colors, tables, and panels.
@@ -16,10 +16,10 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from devpulse import __version__
+from lasttoknow import __version__
 
 if TYPE_CHECKING:
-    from devpulse.models import TrackedItem
+    from lasttoknow.models import TrackedItem
 
 console = Console()
 
@@ -27,10 +27,10 @@ console = Console()
 def render_tracked_items(items: list[TrackedItem]) -> None:
     """Display tracked items in a rich table."""
     if not items:
-        console.print("[yellow]No items tracked yet.[/yellow] Run [bold]devpulse track <package>[/bold] to start.")
+        console.print("[yellow]No items tracked yet.[/yellow] Run [bold]lasttoknow track <package>[/bold] to start.")
         return
 
-    table = Table(title=f"📡 DevPulse — Tracking {len(items)} items")
+    table = Table(title=f"🔔 LastToKnow — Tracking {len(items)} items")
     table.add_column("Name", style="bold")
     table.add_column("Type", style="cyan")
     table.add_column("Version", style="green")
@@ -52,7 +52,7 @@ def render_briefing(response: str, model: str) -> None:
     """Display an agent briefing response in a rich panel."""
     panel = Panel(
         response,
-        title="📡 DevPulse Briefing",
+        title="🔔 LastToKnow Briefing",
         subtitle=f"model: {model}",
         border_style="green",
         padding=(1, 2),
@@ -67,7 +67,7 @@ def render_status(
     default_days: int,
     tracked_count: int,
 ) -> None:
-    """Display the current DevPulse configuration."""
+    """Display the current LastToKnow configuration."""
     info = Text()
     info.append(f"  Config dir:    {config_dir}\n", style="dim")
     info.append("  Model:         ")
@@ -78,7 +78,7 @@ def render_status(
 
     panel = Panel(
         info,
-        title=f"📡 DevPulse v{__version__}",
+        title=f"🔔 LastToKnow v{__version__}",
         border_style="blue",
     )
     console.print(panel)

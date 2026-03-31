@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from devpulse.scanner import ScannedDep, scan_project, scan_pyproject, scan_requirements
+from lasttoknow.scanner import ScannedDep, scan_project, scan_pyproject, scan_requirements
 
 if TYPE_CHECKING:
     from pathlib import Path

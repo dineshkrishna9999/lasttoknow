@@ -1,4 +1,4 @@
-"""Instruction constants for DevPulse agents."""
+"""Instruction constants for LastToKnow agents."""
 
 from .briefing import BRIEFING_INSTRUCTION
 

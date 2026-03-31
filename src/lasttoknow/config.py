@@ -1,6 +1,6 @@
-"""Configuration management for DevPulse.
+"""Configuration management for LastToKnow.
 
-Stores tracked items and settings in ~/.devpulse/ as JSON files.
+Stores tracked items and settings in ~/.lasttoknow/ as JSON files.
 """
 
 from __future__ import annotations
@@ -11,17 +11,17 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from devpulse.models import ItemType, TrackedItem
+from lasttoknow.models import ItemType, TrackedItem
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_DIR = Path.home() / ".devpulse"
+DEFAULT_DIR = Path.home() / ".lasttoknow"
 
 
-class DevPulseConfig:
+class LastToKnowConfig:
     """Manages tracked items and settings.
 
-    Everything is saved as JSON in ~/.devpulse/.
+    Everything is saved as JSON in ~/.lasttoknow/.
     """
 
     def __init__(self, config_dir: Path | None = None) -> None:

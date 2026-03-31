@@ -1,4 +1,4 @@
-"""DevPulse agent — the core AI brain."""
+"""LastToKnow agent — the core AI brain."""
 
 from __future__ import annotations
 
@@ -13,13 +13,13 @@ from google.adk.runners import Runner
 from google.adk.sessions import InMemorySessionService
 from google.genai import types as genai_types
 
-from ._tools import DevPulseTools
+from ._tools import LastToKnowTools
 from .instructions import BRIEFING_INSTRUCTION
 
 logger = logging.getLogger(__name__)
 
 
-class DevPulseAgent(LlmAgent):
+class LastToKnowAgent(LlmAgent):
     """AI-powered tech radar agent.
 
     Uses Google ADK with LiteLLM so any LLM provider works
@@ -27,14 +27,14 @@ class DevPulseAgent(LlmAgent):
     """
 
     def __init__(self, llm: LiteLlm) -> None:
-        self._devpulse_tools = DevPulseTools()
+        self._lasttoknow_tools = LastToKnowTools()
 
         super().__init__(
-            name="devpulse_agent",
+            name="lasttoknow_agent",
             description="AI-powered tech radar that tracks packages, releases, and trends.",
             model=llm,
             instruction=BRIEFING_INSTRUCTION,
-            tools=self._devpulse_tools.get_tools(),  # type: ignore[arg-type]
+            tools=self._lasttoknow_tools.get_tools(),  # type: ignore[arg-type]
         )
 
 
@@ -60,7 +60,7 @@ def _restore_output() -> None:
 
 
 def run_agent(model: str, message: str) -> str:
-    """Run the DevPulse agent and return its response.
+    """Run the LastToKnow agent and return its response.
 
     Args:
         model: LiteLLM model string (e.g. "azure/gpt-4.1", "gpt-4o").
@@ -83,13 +83,13 @@ def run_agent(model: str, message: str) -> str:
 def _run_agent_inner(model: str, message: str) -> str:
     """Inner agent runner (called with output suppressed)."""
     llm = LiteLlm(model=model)
-    agent = DevPulseAgent(llm=llm)
+    agent = LastToKnowAgent(llm=llm)
 
     session_service = InMemorySessionService()  # type: ignore[no-untyped-call]
     runner = Runner(
         agent=agent,
         session_service=session_service,
-        app_name="devpulse",
+        app_name="lasttoknow",
         auto_create_session=True,
     )
 

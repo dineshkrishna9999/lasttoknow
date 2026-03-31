@@ -26,7 +26,7 @@ test-fast = "pytest -x -q"              # stop on first failure
 test-parallel = "pytest -n auto"        # parallel with xdist
 
 # Run the app
-run = "python -m devpulse"
+run = "python -m lasttoknow"
 
 # All checks (CI-like)
 [tool.poe.tasks.check]

@@ -1,6 +1,6 @@
-# 📡 DevPulse
+# 🔔 LastToKnow
 
-> Your AI-powered tech radar. Track packages, releases, trends — and get briefed like a CTO.
+> Never miss what matters in tech. Track packages, releases, trends — and get briefed like a CTO.
 
 [![Python 3.11+](https://img.shields.io/badge/python-3.11+-blue.svg)](https://www.python.org/downloads/)
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
@@ -13,39 +13,39 @@
 
 LiteLLM shipped a breaking change — you found out from a colleague. Google ADK released the exact fix you needed — 2 weeks ago. A repo with 15K stars solves your exact problem — you never heard of it.
 
-**DevPulse fixes this.** It's an AI agent that knows YOUR stack, tracks what matters, and briefs you like a personal tech analyst.
+**LastToKnow fixes this.** It's an AI agent that knows YOUR stack, tracks what matters, and briefs you like a personal tech analyst.
 
 ## How It Works
 
 ```bash
 # Tell it what you care about
-devpulse track litellm
-devpulse track --github BerriAI/litellm
-devpulse track --topic "AI agents"
+lasttoknow track litellm
+lasttoknow track --github BerriAI/litellm
+lasttoknow track --topic "AI agents"
 
 # Or auto-detect from your project
-devpulse scan                        # Reads pyproject.toml / requirements.txt
+lasttoknow scan                        # Reads pyproject.toml / requirements.txt
 
 # Get your personalized briefing
-devpulse brief --model gpt-4o
+lasttoknow brief --model gpt-4o
 ```
 
 ```
-╭──────────────────────── 📡 DevPulse Briefing ────────────────────────╮
-│                                                                       │
-│  🔴 CRITICAL                                                         │
-│  ├── litellm 1.41.0 → Breaking: Azure auth flow changed              │
-│  └── google-adk 1.28.0 → New: Multi-agent orchestration              │
-│                                                                       │
-│  🟡 WORTH KNOWING                                                    │
-│  ├── 🔥 Trending: "hermes-agent" (15K ⭐ this week)                   │
-│  └── HN: "AI agent memory" discussion (342 points)                   │
-│                                                                       │
-│  🟢 FYI                                                              │
-│  ├── pytest 9.0.2 — minor bugfixes                                   │
-│  └── 3 new repos matching "AI agents" trending today                 │
-│                                                                       │
-╰───────────────────────────────── model: gpt-4o ──────────────────────╯
+╭──────────────────────── 🔔 LastToKnow Briefing ───────────────────────╮
+│                                                                        │
+│  🔴 CRITICAL                                                          │
+│  ├── litellm 1.41.0 → Breaking: Azure auth flow changed               │
+│  └── google-adk 1.28.0 → New: Multi-agent orchestration               │
+│                                                                        │
+│  🟡 WORTH KNOWING                                                     │
+│  ├── 🔥 Trending: "hermes-agent" (15K ⭐ this week)                    │
+│  └── HN: "AI agent memory" discussion (342 points)                    │
+│                                                                        │
+│  🟢 FYI                                                               │
+│  ├── pytest 9.0.2 — minor bugfixes                                    │
+│  └── 3 new repos matching "AI agents" trending today                  │
+│                                                                        │
+╰──────────────────────────────── model: gpt-4o ─────────────────────────╯
 ```
 
 ## Features
@@ -61,46 +61,46 @@ devpulse brief --model gpt-4o
 
 ```bash
 # From source (recommended for now)
-git clone https://github.com/dineshkrishna9999/devpulse.git
-cd devpulse
+git clone https://github.com/dineshkrishna9999/lasttoknow.git
+cd lasttoknow
 uv sync
 
 # Then run with
-uv run devpulse --help
+uv run lasttoknow --help
 ```
 
 ## Quick Start
 
 ```bash
 # 1. Set your LLM model
-devpulse config model gpt-4o
-# or set DEVPULSE_MODEL env var
+lasttoknow config model gpt-4o
+# or set LASTTOKNOW_MODEL env var
 # or pass --model flag each time
 
 # 2. Track your stack
-devpulse track litellm                  # PyPI package
-devpulse track --github BerriAI/litellm # GitHub repo
-devpulse track --topic "AI agents"      # Topic
-devpulse track litellm --version 1.40.0 # With current version
-devpulse scan                           # Auto-detect from pyproject.toml
+lasttoknow track litellm                  # PyPI package
+lasttoknow track --github BerriAI/litellm # GitHub repo
+lasttoknow track --topic "AI agents"      # Topic
+lasttoknow track litellm --version 1.40.0 # With current version
+lasttoknow scan                           # Auto-detect from pyproject.toml
 
 # 3. See what you're tracking
-devpulse list
+lasttoknow list
 
 # 4. Get briefed
-devpulse brief                          # Uses configured model
-devpulse brief --model azure/gpt-4.1   # Override model
-devpulse brief --raw                    # Raw text, no formatting
+lasttoknow brief                          # Uses configured model
+lasttoknow brief --model azure/gpt-4.1   # Override model
+lasttoknow brief --raw                    # Raw text, no formatting
 
 # 5. Manage
-devpulse untrack litellm                # Stop tracking
-devpulse status                         # Full overview
-devpulse config show                    # Show settings
+lasttoknow untrack litellm                # Stop tracking
+lasttoknow status                         # Full overview
+lasttoknow config show                    # Show settings
 ```
 
 ## Supported LLM Providers
 
-DevPulse uses [LiteLLM](https://github.com/BerriAI/litellm) under the hood, so **any LLM works**:
+LastToKnow uses [LiteLLM](https://github.com/BerriAI/litellm) under the hood, so **any LLM works**:
 
 | Provider | Model Example | Env Var |
 |----------|---------------|---------|
@@ -111,8 +111,8 @@ DevPulse uses [LiteLLM](https://github.com/BerriAI/litellm) under the hood, so *
 | Ollama (local) | `ollama/llama3` | None needed! |
 
 ```bash
-devpulse config model azure/gpt-4.1
-devpulse config model ollama/llama3
+lasttoknow config model azure/gpt-4.1
+lasttoknow config model ollama/llama3
 ```
 
 ## Data Sources
@@ -127,7 +127,7 @@ The agent fetches from:
 
 ```
 ┌──────────────────────────────────────────────┐
-│              DevPulse CLI (Typer)             │
+│            LastToKnow CLI (Typer)            │
 │          commands → renderer → terminal       │
 └───────────────────┬──────────────────────────┘
                     │
@@ -148,7 +148,7 @@ The agent fetches from:
 └───────────────────┬──────────────────────────┘
                     │
 ┌───────────────────▼──────────────────────────┐
-│         Local State (~/.devpulse/)            │
+│       Local State (~/.lasttoknow/)            │
 │    config.json · tracked.json                 │
 └──────────────────────────────────────────────┘
 ```
@@ -157,8 +157,8 @@ The agent fetches from:
 
 ```bash
 # Clone & install
-git clone https://github.com/dineshkrishna9999/devpulse.git
-cd devpulse
+git clone https://github.com/dineshkrishna9999/lasttoknow.git
+cd lasttoknow
 uv sync
 
 # Run checks
@@ -169,15 +169,15 @@ uv run poe test         # Run tests
 uv run poe check        # Run ALL checks
 
 # Run the CLI
-uv run devpulse status
+uv run lasttoknow status
 ```
 
 ### Project Structure
 
 ```
-src/devpulse/
+src/lasttoknow/
 ├── cli.py              # CLI entry point (Typer)
-├── config.py           # Config & tracked items (~/.devpulse/)
+├── config.py           # Config & tracked items (~/.lasttoknow/)
 ├── models.py           # Data models (dataclasses + StrEnum)
 ├── renderer.py         # Rich terminal output (panels, tables)
 ├── scanner.py          # Dependency scanner (pyproject.toml, requirements.txt)

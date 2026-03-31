@@ -1,19 +1,19 @@
-"""Tests for the DevPulse CLI commands."""
+"""Tests for the LastToKnow CLI commands."""
 
 from pathlib import Path
 from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from devpulse.cli import app
-from devpulse.config import DevPulseConfig
+from lasttoknow.cli import app
+from lasttoknow.config import LastToKnowConfig
 
 runner = CliRunner()
 
 
-def _make_config(tmp_path: Path) -> DevPulseConfig:
+def _make_config(tmp_path: Path) -> LastToKnowConfig:
     """Create a config that uses a temp directory."""
-    return DevPulseConfig(config_dir=tmp_path / "devpulse")
+    return LastToKnowConfig(config_dir=tmp_path / "lasttoknow")
 
 
 class TestTrack:
@@ -21,7 +21,7 @@ class TestTrack:
 
     def test_track_pypi_package(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             result = runner.invoke(app, ["track", "litellm"])
         assert result.exit_code == 0
         assert "litellm" in result.output
@@ -29,7 +29,7 @@ class TestTrack:
 
     def test_track_github_repo(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             result = runner.invoke(app, ["track", "--github", "BerriAI/litellm"])
         assert result.exit_code == 0
         assert "BerriAI/litellm" in result.output
@@ -37,7 +37,7 @@ class TestTrack:
 
     def test_track_topic(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             result = runner.invoke(app, ["track", "--topic", "AI agents"])
         assert result.exit_code == 0
         assert "AI agents" in result.output
@@ -45,7 +45,7 @@ class TestTrack:
 
     def test_track_duplicate(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             runner.invoke(app, ["track", "litellm"])
             result = runner.invoke(app, ["track", "litellm"])
         assert result.exit_code == 0
@@ -53,7 +53,7 @@ class TestTrack:
 
     def test_track_with_version(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             result = runner.invoke(app, ["track", "litellm", "--version", "1.40.0"])
         assert result.exit_code == 0
         assert config.get_item("litellm") is not None
@@ -67,7 +67,7 @@ class TestUntrack:
 
     def test_untrack_existing(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             runner.invoke(app, ["track", "litellm"])
             result = runner.invoke(app, ["untrack", "litellm"])
         assert result.exit_code == 0
@@ -75,7 +75,7 @@ class TestUntrack:
 
     def test_untrack_nonexistent(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             result = runner.invoke(app, ["untrack", "doesnt-exist"])
         assert result.exit_code == 0
         assert "Not tracking" in result.output
@@ -86,14 +86,14 @@ class TestList:
 
     def test_list_empty(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             result = runner.invoke(app, ["list"])
         assert result.exit_code == 0
         assert "No items tracked" in result.output
 
     def test_list_with_items(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             runner.invoke(app, ["track", "litellm"])
             runner.invoke(app, ["track", "--topic", "AI agents"])
             result = runner.invoke(app, ["list"])
@@ -107,7 +107,7 @@ class TestConfig:
 
     def test_config_model_set(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             result = runner.invoke(app, ["config", "model", "gpt-4o"])
         assert result.exit_code == 0
         assert "gpt-4o" in result.output
@@ -115,15 +115,15 @@ class TestConfig:
 
     def test_config_show(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             result = runner.invoke(app, ["config", "show"])
         assert result.exit_code == 0
-        assert "DevPulse" in result.output
+        assert "LastToKnow" in result.output
         assert "(not set)" in result.output
 
     def test_config_show_with_model(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             runner.invoke(app, ["config", "model", "azure/gpt-4.1"])
             result = runner.invoke(app, ["config", "show"])
         assert result.exit_code == 0
@@ -135,10 +135,10 @@ class TestStatus:
 
     def test_status_empty(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             result = runner.invoke(app, ["status"])
         assert result.exit_code == 0
-        assert "DevPulse" in result.output
+        assert "LastToKnow" in result.output
         assert "No items tracked" in result.output
 
 
@@ -147,7 +147,7 @@ class TestBrief:
 
     def test_brief_no_model(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
-        with patch("devpulse.cli._config", config), patch.dict("os.environ", {}, clear=True):
+        with patch("lasttoknow.cli._config", config), patch.dict("os.environ", {}, clear=True):
             result = runner.invoke(app, ["brief"])
         assert result.exit_code == 1
         assert "No model configured" in result.output
@@ -155,8 +155,8 @@ class TestBrief:
     def test_brief_with_model_flag(self, tmp_path: Path) -> None:
         config = _make_config(tmp_path)
         with (
-            patch("devpulse.cli._config", config),
-            patch("devpulse.agents.agent.run_agent", return_value="Test briefing response"),
+            patch("lasttoknow.cli._config", config),
+            patch("lasttoknow.agents.agent.run_agent", return_value="Test briefing response"),
         ):
             result = runner.invoke(app, ["brief", "--model", "gpt-4o"])
         assert result.exit_code == 0
@@ -172,7 +172,7 @@ class TestScan:
         project.mkdir()
         toml = project / "pyproject.toml"
         toml.write_text('[project]\ndependencies = [\n    "litellm>=1.40.0",\n    "rich>=13.0.0",\n]\n')
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             result = runner.invoke(app, ["scan", str(project)])
         assert result.exit_code == 0
         assert "litellm" in result.output
@@ -186,7 +186,7 @@ class TestScan:
         project.mkdir()
         req = project / "requirements.txt"
         req.write_text("httpx>=0.27.0\nclick>=8.0\n")
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             result = runner.invoke(app, ["scan", str(project)])
         assert result.exit_code == 0
         assert "httpx" in result.output
@@ -198,7 +198,7 @@ class TestScan:
         project.mkdir()
         toml = project / "pyproject.toml"
         toml.write_text('[project]\ndependencies = ["litellm>=1.40.0"]\n')
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             # Track first, then scan
             runner.invoke(app, ["track", "litellm"])
             result = runner.invoke(app, ["scan", str(project)])
@@ -209,7 +209,7 @@ class TestScan:
         config = _make_config(tmp_path)
         project = tmp_path / "empty"
         project.mkdir()
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             result = runner.invoke(app, ["scan", str(project)])
         assert result.exit_code == 0
         assert "No dependencies found" in result.output
@@ -220,7 +220,7 @@ class TestScan:
         project.mkdir()
         toml = project / "pyproject.toml"
         toml.write_text('[project]\ndependencies = ["litellm>=1.40.0"]\n')
-        with patch("devpulse.cli._config", config):
+        with patch("lasttoknow.cli._config", config):
             runner.invoke(app, ["scan", str(project)])
         item = config.get_item("litellm")
         assert item is not None

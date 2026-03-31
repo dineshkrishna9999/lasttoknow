@@ -1,4 +1,4 @@
-"""Data models for DevPulse."""
+"""Data models for LastToKnow."""
 
 from __future__ import annotations
 

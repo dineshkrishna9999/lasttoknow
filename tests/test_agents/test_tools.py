@@ -1,4 +1,4 @@
-"""Tests for the DevPulse agent tool functions.
+"""Tests for the LastToKnow agent tool functions.
 
 Each tool calls an external API. We mock httpx.get so tests are
 fast, offline, and deterministic.
@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 from unittest.mock import MagicMock, patch
 
-from devpulse.agents._tools import DevPulseTools
+from lasttoknow.agents._tools import LastToKnowTools
 
 
 def _mock_response(data: dict | list) -> MagicMock:  # type: ignore[type-arg]
@@ -24,7 +24,7 @@ class TestFetchPypiReleases:
     """Tests for the PyPI release fetcher."""
 
     def setup_method(self) -> None:
-        self.tools = DevPulseTools()
+        self.tools = LastToKnowTools()
 
     def test_successful_fetch(self) -> None:
         mock_data = {
@@ -37,7 +37,7 @@ class TestFetchPypiReleases:
             },
             "releases": {"1.41.0": [], "1.40.0": [], "1.39.0": []},
         }
-        with patch("devpulse.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
+        with patch("lasttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
             result = json.loads(self.tools.fetch_pypi_releases("litellm"))
 
         assert result["package"] == "litellm"
@@ -46,7 +46,7 @@ class TestFetchPypiReleases:
         assert "1.41.0" in result["recent_versions"]
 
     def test_returns_error_on_failure(self) -> None:
-        with patch("devpulse.agents._tools.httpx.get", side_effect=Exception("Connection failed")):
+        with patch("lasttoknow.agents._tools.httpx.get", side_effect=Exception("Connection failed")):
             result = json.loads(self.tools.fetch_pypi_releases("nonexistent-pkg"))
 
         assert "error" in result
@@ -64,7 +64,7 @@ class TestFetchPypiReleases:
             },
             "releases": releases,
         }
-        with patch("devpulse.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
+        with patch("lasttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
             result = json.loads(self.tools.fetch_pypi_releases("test-pkg"))
 
         assert len(result["recent_versions"]) == 5
@@ -74,7 +74,7 @@ class TestFetchGithubTrending:
     """Tests for the GitHub trending fetcher."""
 
     def setup_method(self) -> None:
-        self.tools = DevPulseTools()
+        self.tools = LastToKnowTools()
 
     def test_successful_fetch(self) -> None:
         mock_data = {
@@ -88,7 +88,7 @@ class TestFetchGithubTrending:
                 },
             ],
         }
-        with patch("devpulse.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
+        with patch("lasttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
             result = json.loads(self.tools.fetch_github_trending("python", "weekly"))
 
         assert result["language"] == "python"
@@ -99,7 +99,7 @@ class TestFetchGithubTrending:
 
     def test_daily_since(self) -> None:
         mock_data = {"items": []}
-        with patch("devpulse.agents._tools.httpx.get", return_value=_mock_response(mock_data)) as mock_get:
+        with patch("lasttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)) as mock_get:
             self.tools.fetch_github_trending("python", "daily")
 
         call_kwargs = mock_get.call_args
@@ -108,7 +108,7 @@ class TestFetchGithubTrending:
 
     def test_monthly_since(self) -> None:
         mock_data = {"items": []}
-        with patch("devpulse.agents._tools.httpx.get", return_value=_mock_response(mock_data)) as mock_get:
+        with patch("lasttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)) as mock_get:
             self.tools.fetch_github_trending("javascript", "monthly")
 
         call_kwargs = mock_get.call_args
@@ -116,7 +116,7 @@ class TestFetchGithubTrending:
         assert "javascript" in query["q"]
 
     def test_returns_error_on_failure(self) -> None:
-        with patch("devpulse.agents._tools.httpx.get", side_effect=Exception("Rate limited")):
+        with patch("lasttoknow.agents._tools.httpx.get", side_effect=Exception("Rate limited")):
             result = json.loads(self.tools.fetch_github_trending())
 
         assert "error" in result
@@ -133,7 +133,7 @@ class TestFetchGithubTrending:
             for i in range(15)
         ]
         mock_data = {"items": items}
-        with patch("devpulse.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
+        with patch("lasttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
             result = json.loads(self.tools.fetch_github_trending())
 
         assert len(result["trending"]) == 10
@@ -143,7 +143,7 @@ class TestFetchHackernewsTop:
     """Tests for the Hacker News fetcher."""
 
     def setup_method(self) -> None:
-        self.tools = DevPulseTools()
+        self.tools = LastToKnowTools()
 
     def test_successful_fetch(self) -> None:
         mock_data = {
@@ -157,7 +157,7 @@ class TestFetchHackernewsTop:
                 },
             ],
         }
-        with patch("devpulse.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
+        with patch("lasttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
             result = json.loads(self.tools.fetch_hackernews_top("AI"))
 
         assert result["query"] == "AI"
@@ -176,7 +176,7 @@ class TestFetchHackernewsTop:
                 },
             ],
         }
-        with patch("devpulse.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
+        with patch("lasttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
             result = json.loads(self.tools.fetch_hackernews_top("AI"))
 
         assert "news.ycombinator.com" in result["stories"][0]["url"]
@@ -184,7 +184,7 @@ class TestFetchHackernewsTop:
 
     def test_custom_limit(self) -> None:
         mock_data = {"hits": []}
-        with patch("devpulse.agents._tools.httpx.get", return_value=_mock_response(mock_data)) as mock_get:
+        with patch("lasttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)) as mock_get:
             self.tools.fetch_hackernews_top("python", limit=5)
 
         call_kwargs = mock_get.call_args
@@ -192,7 +192,7 @@ class TestFetchHackernewsTop:
         assert params["hitsPerPage"] == 5
 
     def test_returns_error_on_failure(self) -> None:
-        with patch("devpulse.agents._tools.httpx.get", side_effect=Exception("Timeout")):
+        with patch("lasttoknow.agents._tools.httpx.get", side_effect=Exception("Timeout")):
             result = json.loads(self.tools.fetch_hackernews_top())
 
         assert "error" in result
@@ -203,6 +203,6 @@ class TestGetTools:
     """Tests for the get_tools method."""
 
     def test_returns_three_tools(self) -> None:
-        tools = DevPulseTools()
+        tools = LastToKnowTools()
         function_tools = tools.get_tools()
         assert len(function_tools) == 3

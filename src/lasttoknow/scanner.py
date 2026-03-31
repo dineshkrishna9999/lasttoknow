@@ -1,4 +1,4 @@
-"""Dependency scanner for DevPulse.
+"""Dependency scanner for LastToKnow.
 
 Reads pyproject.toml or requirements.txt from a project directory
 and extracts package names + pinned versions.
