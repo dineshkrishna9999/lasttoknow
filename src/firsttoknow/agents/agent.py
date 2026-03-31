@@ -6,6 +6,8 @@ import logging
 import sys
 import threading
 import warnings
+from contextlib import contextmanager
+from typing import TYPE_CHECKING
 
 from google.adk.agents.llm_agent import LlmAgent
 from google.adk.models.lite_llm import LiteLlm
@@ -15,6 +17,9 @@ from google.genai import types as genai_types
 
 from ._tools import FirstToKnowTools
 from .instructions import BRIEFING_INSTRUCTION
+
+if TYPE_CHECKING:
+    from collections.abc import Generator
 
 logger = logging.getLogger(__name__)
 
@@ -38,25 +43,35 @@ class FirstToKnowAgent(LlmAgent):
         )
 
 
-def _suppress_noisy_output() -> None:
-    """Suppress ADK/LiteLLM background thread tracebacks and warnings."""
-    # Silence loggers
-    for name in ("LiteLLM", "google.adk", "litellm", "httpx"):
-        logging.getLogger(name).setLevel(logging.CRITICAL)
+@contextmanager
+def _suppress_noisy_output() -> Generator[None]:
+    """Temporarily suppress ADK/LiteLLM background noise, restoring everything on exit."""
+    # Save previous state
+    old_excepthook = threading.excepthook
+    old_filters = warnings.filters[:]
+    old_stderr = sys.stderr
+    old_levels: dict[str, int] = {}
+    noisy_loggers = ("LiteLLM", "google.adk", "litellm", "httpx")
+    for name in noisy_loggers:
+        lg = logging.getLogger(name)
+        old_levels[name] = lg.level
+        lg.setLevel(logging.CRITICAL)
 
-    # Suppress background thread exception tracebacks
     threading.excepthook = lambda _args: None
-
-    # Suppress warnings (e.g. "App name mismatch detected")
     warnings.filterwarnings("ignore")
+    devnull = open("/dev/null", "w")  # noqa: PTH123, SIM115
+    sys.stderr = devnull
 
-    # Redirect stderr to suppress any remaining noise during the run
-    sys.stderr = open("/dev/null", "w")  # noqa: PTH123, SIM115
-
-
-def _restore_output() -> None:
-    """Restore stderr after suppression."""
-    sys.stderr = sys.__stderr__
+    try:
+        yield
+    finally:
+        # Restore everything
+        sys.stderr = old_stderr
+        devnull.close()
+        threading.excepthook = old_excepthook
+        warnings.filters[:] = old_filters  # type: ignore[index]
+        for name in noisy_loggers:
+            logging.getLogger(name).setLevel(old_levels[name])
 
 
 def run_agent(model: str, message: str) -> str:
@@ -72,12 +87,8 @@ def run_agent(model: str, message: str) -> str:
     Raises:
         RuntimeError: If the agent fails (auth error, no response, etc).
     """
-    _suppress_noisy_output()
-
-    try:
+    with _suppress_noisy_output():
         return _run_agent_inner(model, message)
-    finally:
-        _restore_output()
 
 
 def _run_agent_inner(model: str, message: str) -> str:

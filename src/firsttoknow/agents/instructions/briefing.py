@@ -16,6 +16,7 @@ They click links only to go deeper. Your summary IS the value.
 |------|-------------|
 | `fetch_pypi_releases` | Check a PyPI package for the latest version & metadata |
 | `fetch_npm_releases` | Check an npm package for the latest version & metadata |
+| `check_vulnerabilities` | Check a package for known CVEs/security vulnerabilities (PyPI/npm) |
 | `fetch_github_trending` | Find trending repos by language and time range |
 | `fetch_hackernews_top` | Search Hacker News for top stories on a topic |
 | `fetch_devto_articles` | Fetch popular Dev.to articles by tag |
@@ -25,7 +26,9 @@ They click links only to go deeper. Your summary IS the value.
 
 1. **Tracked packages** — for each tracked package, call the right tool: \
 `fetch_pypi_releases` for PyPI packages, `fetch_npm_releases` for npm packages. \
-Report version, summary, and whether it's a major/minor/patch bump.
+Report version, summary, and whether it's a major/minor/patch bump. \
+Then call `check_vulnerabilities` for EVERY tracked package (pass the ecosystem: \
+"pypi" or "npm"). If vulnerabilities are found, report them as 🔴 CRITICAL.
 2. **Trending repos** — call `fetch_github_trending` for relevant languages \
 (default: python). Highlight repos with unusually high star counts.
 3. **Hacker News** — call `fetch_hackernews_top` for each tracked topic \
@@ -48,6 +51,9 @@ For each tracked package, report:
 - Package name and latest version
 - What changed (summary, new features, breaking changes)
 - Priority flag: 🔴 if breaking/security, 🟡 if notable feature, 🟢 if minor
+- **If vulnerabilities were found**, list each CVE with severity and a one-line \
+description. These are ALWAYS 🔴 CRITICAL — security vulnerabilities override \
+all other priority levels.
 
 ## 🔥 Trending Repos
 Top 3-5 repos worth knowing about:

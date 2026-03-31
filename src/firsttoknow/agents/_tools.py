@@ -18,6 +18,12 @@ logger = logging.getLogger(__name__)
 _TIMEOUT = 10
 
 
+def _error_response(context: str, exc: Exception) -> str:
+    """Build a standard JSON error response and log the failure."""
+    logger.warning("%s: %s", context, exc)
+    return json.dumps({"error": f"{context}: {exc}"})
+
+
 class FirstToKnowTools:
     """Tools the FirstToKnow agent can call to fetch real-time data."""
 
@@ -49,8 +55,7 @@ class FirstToKnowTools:
                 }
             )
         except Exception as exc:
-            logger.warning("PyPI fetch failed for %s: %s", package_name, exc)
-            return json.dumps({"error": f"Failed to fetch {package_name}: {exc}"})
+            return _error_response(f"PyPI fetch failed for {package_name}", exc)
 
     def fetch_npm_releases(self, package_name: str) -> str:
         """Fetch the latest release info for an npm package.
@@ -88,8 +93,7 @@ class FirstToKnowTools:
                 }
             )
         except Exception as exc:
-            logger.warning("npm fetch failed for %s: %s", package_name, exc)
-            return json.dumps({"error": f"Failed to fetch {package_name}: {exc}"})
+            return _error_response(f"npm fetch failed for {package_name}", exc)
 
     def fetch_github_trending(self, language: str = "python", since: str = "weekly") -> str:
         """Fetch trending repositories from GitHub.
@@ -132,8 +136,7 @@ class FirstToKnowTools:
             ]
             return json.dumps({"trending": repos, "language": language, "since": since})
         except Exception as exc:
-            logger.warning("GitHub trending fetch failed: %s", exc)
-            return json.dumps({"error": f"Failed to fetch trending: {exc}"})
+            return _error_response("GitHub trending fetch failed", exc)
 
     def fetch_hackernews_top(self, query: str = "AI", limit: int = 10) -> str:
         """Fetch top Hacker News stories matching a query.
@@ -165,8 +168,7 @@ class FirstToKnowTools:
             ]
             return json.dumps({"stories": stories, "query": query})
         except Exception as exc:
-            logger.warning("HN fetch failed for query '%s': %s", query, exc)
-            return json.dumps({"error": f"Failed to fetch HN: {exc}"})
+            return _error_response(f"HN fetch failed for query '{query}'", exc)
 
     def fetch_devto_articles(self, tag: str = "python", limit: int = 10) -> str:
         """Fetch recent popular articles from Dev.to by tag.
@@ -200,8 +202,7 @@ class FirstToKnowTools:
             ]
             return json.dumps({"articles": articles, "tag": tag})
         except Exception as exc:
-            logger.warning("Dev.to fetch failed for tag '%s': %s", tag, exc)
-            return json.dumps({"error": f"Failed to fetch Dev.to: {exc}"})
+            return _error_response(f"Dev.to fetch failed for tag '{tag}'", exc)
 
     def fetch_reddit_posts(self, subreddit: str = "programming", limit: int = 10) -> str:
         """Fetch top posts from a subreddit.
@@ -232,14 +233,94 @@ class FirstToKnowTools:
             ]
             return json.dumps({"posts": posts[:limit], "subreddit": subreddit})
         except Exception as exc:
-            logger.warning("Reddit fetch failed for r/%s: %s", subreddit, exc)
-            return json.dumps({"error": f"Failed to fetch Reddit: {exc}"})
+            return _error_response(f"Reddit fetch failed for r/{subreddit}", exc)
+
+    def check_vulnerabilities(self, package_name: str, ecosystem: str = "pypi") -> str:
+        """Check a package for known security vulnerabilities via OSV.dev.
+
+        Args:
+            package_name: Name of the package (e.g. "litellm", "express").
+            ecosystem: Package ecosystem — "pypi" or "npm".
+
+        Returns:
+            JSON string with vulnerability count and details, or an error.
+        """
+        # OSV expects exact ecosystem strings
+        ecosystem_map = {"pypi": "PyPI", "npm": "npm"}
+        osv_ecosystem = ecosystem_map.get(ecosystem.lower(), ecosystem)
+
+        try:
+            resp = httpx.post(
+                "https://api.osv.dev/v1/query",
+                json={"package": {"name": package_name, "ecosystem": osv_ecosystem}},
+                timeout=_TIMEOUT,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            raw_vulns = data.get("vulns", [])
+
+            vulns = []
+            for v in raw_vulns:
+                # Extract best ID: prefer CVE alias, fall back to OSV id
+                vuln_id = v.get("id", "")
+                aliases = v.get("aliases", [])
+                cve_id = next((a for a in aliases if a.startswith("CVE-")), None)
+                display_id = cve_id or vuln_id
+
+                # Extract severity from CVSS score
+                severity_list = v.get("severity", [])
+                score = ""
+                severity_label = "UNKNOWN"
+                if severity_list:
+                    score = severity_list[0].get("score", "")
+                    try:
+                        score_float = float(score)
+                        if score_float >= 9.0:
+                            severity_label = "CRITICAL"
+                        elif score_float >= 7.0:
+                            severity_label = "HIGH"
+                        elif score_float >= 4.0:
+                            severity_label = "MEDIUM"
+                        else:
+                            severity_label = "LOW"
+                    except (ValueError, TypeError):
+                        pass
+
+                # Extract reference URL
+                refs = v.get("references", [])
+                url = f"https://osv.dev/vulnerability/{vuln_id}"
+                for ref in refs:
+                    if ref.get("type") == "ADVISORY":
+                        url = ref.get("url", url)
+                        break
+
+                vulns.append(
+                    {
+                        "id": display_id,
+                        "summary": v.get("summary", ""),
+                        "severity": severity_label,
+                        "score": score,
+                        "url": url,
+                    }
+                )
+
+            return json.dumps(
+                {
+                    "package": package_name,
+                    "ecosystem": osv_ecosystem,
+                    "vulnerability_count": len(vulns),
+                    "vulnerabilities": vulns,
+                }
+            )
+        except Exception as exc:
+            return _error_response(f"OSV fetch failed for {package_name} ({ecosystem})", exc)
 
     def get_tools(self) -> list[FunctionTool]:
         """Return all tools as FunctionTool instances for ADK."""
         return [
             FunctionTool(self.fetch_pypi_releases),
             FunctionTool(self.fetch_npm_releases),
+            FunctionTool(self.check_vulnerabilities),
             FunctionTool(self.fetch_github_trending),
             FunctionTool(self.fetch_hackernews_top),
             FunctionTool(self.fetch_devto_articles),

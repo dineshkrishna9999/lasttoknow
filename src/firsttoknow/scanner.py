@@ -203,7 +203,7 @@ def scan_package_json(path: Path) -> list[ScannedDep]:
     return deps
 
 
-def scan_project(path: Path) -> list[ScannedDep]:
+def scan_project(path: Path) -> tuple[list[ScannedDep], str]:
     """Scan a project directory for dependencies.
 
     Tries pyproject.toml first, then requirements.txt, then package.json.
@@ -212,14 +212,20 @@ def scan_project(path: Path) -> list[ScannedDep]:
         path: Path to the project directory.
 
     Returns:
-        List of dependencies found.
+        Tuple of (dependencies found, source file name).
+        Source is "pyproject.toml", "requirements.txt", "package.json", or ""
+        if nothing was found.
     """
     deps = scan_pyproject(path)
     if deps:
-        return deps
+        return deps, "pyproject.toml"
 
     deps = scan_requirements(path)
     if deps:
-        return deps
+        return deps, "requirements.txt"
 
-    return scan_package_json(path)
+    deps = scan_package_json(path)
+    if deps:
+        return deps, "package.json"
+
+    return [], ""

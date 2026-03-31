@@ -417,10 +417,144 @@ class TestFetchRedditPosts:
         assert "Rate limited" in result["error"]
 
 
+class TestCheckVulnerabilities:
+    """Tests for the OSV vulnerability checker."""
+
+    def setup_method(self) -> None:
+        self.tools = FirstToKnowTools()
+
+    def test_vulnerabilities_found(self) -> None:
+        mock_data = {
+            "vulns": [
+                {
+                    "id": "GHSA-xxxx-yyyy",
+                    "aliases": ["CVE-2024-1234"],
+                    "summary": "Remote code execution via prompt injection",
+                    "severity": [{"type": "CVSS_V3", "score": "9.8"}],
+                    "references": [
+                        {"type": "ADVISORY", "url": "https://github.com/advisories/GHSA-xxxx-yyyy"},
+                    ],
+                },
+            ],
+        }
+        with patch("firsttoknow.agents._tools.httpx.post", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.check_vulnerabilities("litellm", "pypi"))
+
+        assert result["package"] == "litellm"
+        assert result["ecosystem"] == "PyPI"
+        assert result["vulnerability_count"] == 1
+        assert result["vulnerabilities"][0]["id"] == "CVE-2024-1234"
+        assert result["vulnerabilities"][0]["severity"] == "CRITICAL"
+        assert result["vulnerabilities"][0]["score"] == "9.8"
+
+    def test_no_vulnerabilities(self) -> None:
+        mock_data: dict[str, list[object]] = {"vulns": []}
+        with patch("firsttoknow.agents._tools.httpx.post", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.check_vulnerabilities("litellm", "pypi"))
+
+        assert result["vulnerability_count"] == 0
+        assert result["vulnerabilities"] == []
+
+    def test_empty_response(self) -> None:
+        mock_data: dict[str, object] = {}
+        with patch("firsttoknow.agents._tools.httpx.post", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.check_vulnerabilities("safe-pkg", "npm"))
+
+        assert result["vulnerability_count"] == 0
+        assert result["vulnerabilities"] == []
+
+    def test_returns_error_on_failure(self) -> None:
+        with patch("firsttoknow.agents._tools.httpx.post", side_effect=Exception("Timeout")):
+            result = json.loads(self.tools.check_vulnerabilities("litellm"))
+
+        assert "error" in result
+        assert "Timeout" in result["error"]
+
+    def test_severity_high(self) -> None:
+        mock_data = {
+            "vulns": [
+                {
+                    "id": "OSV-2024-100",
+                    "summary": "Denial of service",
+                    "severity": [{"type": "CVSS_V3", "score": "7.5"}],
+                    "references": [],
+                },
+            ],
+        }
+        with patch("firsttoknow.agents._tools.httpx.post", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.check_vulnerabilities("test-pkg", "pypi"))
+
+        assert result["vulnerabilities"][0]["severity"] == "HIGH"
+
+    def test_severity_medium(self) -> None:
+        mock_data = {
+            "vulns": [
+                {
+                    "id": "OSV-2024-200",
+                    "summary": "Info disclosure",
+                    "severity": [{"type": "CVSS_V3", "score": "4.3"}],
+                    "references": [],
+                },
+            ],
+        }
+        with patch("firsttoknow.agents._tools.httpx.post", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.check_vulnerabilities("test-pkg", "npm"))
+
+        assert result["vulnerabilities"][0]["severity"] == "MEDIUM"
+        assert result["ecosystem"] == "npm"
+
+    def test_severity_low(self) -> None:
+        mock_data = {
+            "vulns": [
+                {
+                    "id": "OSV-2024-300",
+                    "summary": "Minor issue",
+                    "severity": [{"type": "CVSS_V3", "score": "2.1"}],
+                    "references": [],
+                },
+            ],
+        }
+        with patch("firsttoknow.agents._tools.httpx.post", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.check_vulnerabilities("test-pkg"))
+
+        assert result["vulnerabilities"][0]["severity"] == "LOW"
+
+    def test_no_severity_returns_unknown(self) -> None:
+        mock_data = {
+            "vulns": [
+                {
+                    "id": "OSV-2024-400",
+                    "summary": "Unknown severity vuln",
+                    "references": [],
+                },
+            ],
+        }
+        with patch("firsttoknow.agents._tools.httpx.post", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.check_vulnerabilities("test-pkg"))
+
+        assert result["vulnerabilities"][0]["severity"] == "UNKNOWN"
+
+    def test_prefers_cve_alias_as_id(self) -> None:
+        mock_data = {
+            "vulns": [
+                {
+                    "id": "GHSA-abcd-efgh",
+                    "aliases": ["PYSEC-2024-1", "CVE-2024-9999"],
+                    "summary": "Test",
+                    "references": [],
+                },
+            ],
+        }
+        with patch("firsttoknow.agents._tools.httpx.post", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.check_vulnerabilities("test-pkg"))
+
+        assert result["vulnerabilities"][0]["id"] == "CVE-2024-9999"
+
+
 class TestGetTools:
     """Tests for the get_tools method."""
 
-    def test_returns_six_tools(self) -> None:
+    def test_returns_seven_tools(self) -> None:
         tools = FirstToKnowTools()
         function_tools = tools.get_tools()
-        assert len(function_tools) == 6
+        assert len(function_tools) == 7

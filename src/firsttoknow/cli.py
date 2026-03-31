@@ -141,18 +141,13 @@ def scan(
     from firsttoknow.scanner import scan_project
 
     project_path = Path(path).resolve()
-    deps = scan_project(project_path)
+    deps, source = scan_project(project_path)
 
     if not deps:
         render_warning(f"No dependencies found in {project_path}")
         return
 
-    # Determine the ecosystem based on which file was found
-    is_npm = (
-        not (project_path / "pyproject.toml").exists()
-        and not (project_path / "requirements.txt").exists()
-        and (project_path / "package.json").exists()
-    )
+    is_npm = source == "package.json"
 
     added = 0
     skipped = 0
@@ -177,12 +172,6 @@ def scan(
         except ValueError:
             skipped += 1
 
-    if is_npm:
-        source = "package.json"
-    elif (project_path / "pyproject.toml").exists():
-        source = "pyproject.toml"
-    else:
-        source = "requirements.txt"
     render_scan_results(found=len(deps), added=added, skipped=skipped, source=source)
 
 
@@ -223,6 +212,8 @@ def brief(
         parts.append(f"Also search for news about: {', '.join(topics)}.")
     if not packages and not npm_packages and not topics:
         parts.append("I'm not tracking anything specific yet — give me general Python/AI trends.")
+    if packages or npm_packages:
+        parts.append("Also check all tracked packages for known security vulnerabilities.")
 
     message = " ".join(parts)
 

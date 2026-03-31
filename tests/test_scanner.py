@@ -107,36 +107,52 @@ class TestScanProject:
         toml.write_text('[project]\ndependencies = ["litellm>=1.40.0"]\n')
         req = tmp_path / "requirements.txt"
         req.write_text("rich>=13.0.0\n")
-        deps = scan_project(tmp_path)
+        deps, source = scan_project(tmp_path)
         # Should use pyproject.toml, not requirements.txt
         assert len(deps) == 1
         assert deps[0].name == "litellm"
+        assert source == "pyproject.toml"
 
     def test_falls_back_to_requirements(self, tmp_path: Path) -> None:
         req = tmp_path / "requirements.txt"
         req.write_text("rich>=13.0.0\nhttpx>=0.27.0\n")
-        deps = scan_project(tmp_path)
+        deps, source = scan_project(tmp_path)
         assert len(deps) == 2
+        assert source == "requirements.txt"
 
     def test_falls_back_to_package_json(self, tmp_path: Path) -> None:
         pkg = tmp_path / "package.json"
         pkg.write_text('{"dependencies": {"express": "^4.18.2"}}')
-        deps = scan_project(tmp_path)
+        deps, source = scan_project(tmp_path)
         assert len(deps) == 1
         assert deps[0].name == "express"
+        assert source == "package.json"
 
     def test_prefers_pyproject_over_package_json(self, tmp_path: Path) -> None:
         toml = tmp_path / "pyproject.toml"
         toml.write_text('[project]\ndependencies = ["litellm>=1.40.0"]\n')
         pkg = tmp_path / "package.json"
         pkg.write_text('{"dependencies": {"express": "^4.18.2"}}')
-        deps = scan_project(tmp_path)
+        deps, source = scan_project(tmp_path)
         assert len(deps) == 1
         assert deps[0].name == "litellm"
+        assert source == "pyproject.toml"
 
     def test_returns_empty_for_empty_dir(self, tmp_path: Path) -> None:
-        deps = scan_project(tmp_path)
+        deps, source = scan_project(tmp_path)
         assert deps == []
+        assert source == ""
+
+    def test_empty_pyproject_falls_through_to_package_json(self, tmp_path: Path) -> None:
+        """Bug fix: empty pyproject.toml should not block package.json detection."""
+        toml = tmp_path / "pyproject.toml"
+        toml.write_text("[project]\nname = 'test'\n")
+        pkg = tmp_path / "package.json"
+        pkg.write_text('{"dependencies": {"express": "^4.18.2"}}')
+        deps, source = scan_project(tmp_path)
+        assert len(deps) == 1
+        assert deps[0].name == "express"
+        assert source == "package.json"
 
 
 class TestScanPackageJson:
