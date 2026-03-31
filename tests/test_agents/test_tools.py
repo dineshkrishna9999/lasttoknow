@@ -70,6 +70,85 @@ class TestFetchPypiReleases:
         assert len(result["recent_versions"]) == 5
 
 
+class TestFetchNpmReleases:
+    """Tests for the npm release fetcher."""
+
+    def setup_method(self) -> None:
+        self.tools = FirstToKnowTools()
+
+    def test_successful_fetch(self) -> None:
+        mock_data = {
+            "dist-tags": {"latest": "4.18.2"},
+            "versions": {
+                "4.18.2": {
+                    "description": "Fast web framework",
+                    "homepage": "https://expressjs.com",
+                    "repository": {"url": "git+https://github.com/expressjs/express.git"},
+                },
+                "4.18.1": {},
+                "4.17.0": {},
+            },
+        }
+        with patch("firsttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.fetch_npm_releases("express"))
+
+        assert result["package"] == "express"
+        assert result["latest_version"] == "4.18.2"
+        assert result["summary"] == "Fast web framework"
+        assert result["home_page"] == "https://expressjs.com"
+        assert "4.18.2" in result["recent_versions"]
+
+    def test_returns_error_on_failure(self) -> None:
+        with patch("firsttoknow.agents._tools.httpx.get", side_effect=Exception("Connection failed")):
+            result = json.loads(self.tools.fetch_npm_releases("nonexistent-pkg"))
+
+        assert "error" in result
+        assert "Connection failed" in result["error"]
+
+    def test_limits_recent_versions(self) -> None:
+        versions = {f"1.{i}.0": {} for i in range(20)}
+        mock_data = {
+            "dist-tags": {"latest": "1.19.0"},
+            "versions": versions,
+        }
+        with patch("firsttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.fetch_npm_releases("test-pkg"))
+
+        assert len(result["recent_versions"]) == 5
+
+    def test_scoped_package(self) -> None:
+        mock_data = {
+            "dist-tags": {"latest": "7.24.0"},
+            "versions": {
+                "7.24.0": {
+                    "description": "Babel compiler core",
+                    "homepage": "https://babel.dev",
+                    "repository": {"url": "https://github.com/babel/babel"},
+                },
+            },
+        }
+        with patch("firsttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.fetch_npm_releases("@babel/core"))
+
+        assert result["package"] == "@babel/core"
+        assert result["latest_version"] == "7.24.0"
+
+    def test_repository_as_string(self) -> None:
+        mock_data = {
+            "dist-tags": {"latest": "1.0.0"},
+            "versions": {
+                "1.0.0": {
+                    "description": "A package",
+                    "repository": "https://github.com/user/repo",
+                },
+            },
+        }
+        with patch("firsttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.fetch_npm_releases("test-pkg"))
+
+        assert result["project_urls"]["repository"] == "https://github.com/user/repo"
+
+
 class TestFetchGithubTrending:
     """Tests for the GitHub trending fetcher."""
 
@@ -341,7 +420,7 @@ class TestFetchRedditPosts:
 class TestGetTools:
     """Tests for the get_tools method."""
 
-    def test_returns_five_tools(self) -> None:
+    def test_returns_six_tools(self) -> None:
         tools = FirstToKnowTools()
         function_tools = tools.get_tools()
-        assert len(function_tools) == 5
+        assert len(function_tools) == 6

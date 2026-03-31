@@ -53,6 +53,51 @@ uv run firsttoknow brief --model gpt-4o          # Get your personalized briefin
 
 **No dashboards.** No browser tabs. No newsletters you'll never read. Just one command and you're the **first** to know.
 
+### Real output — tracking an npm package
+
+```bash
+$ uv run firsttoknow track --npm express
+✓ Now tracking express (npm)
+
+$ uv run firsttoknow brief
+```
+
+```
+╭───────────────────────────────────── 🔔 FirstToKnow Briefing ──────────────────────────────────────╮
+│                                                                                                    │
+│  ## 📦 Package Updates                                                                             │
+│                                                                                                    │
+│  **express 5.2.1** — The latest version of Express is 5.2.1. This release includes ongoing         │
+│  enhancements beneath the major 5.x line, which previously introduced long-awaited improvements    │
+│  like async route handling and upgraded error middleware. 🟢                                        │
+│  [Read more](https://expressjs.com/)                                                               │
+│                                                                                                    │
+│  ## 🔥 Trending Repos                                                                              │
+│                                                                                                    │
+│  **instructkr/clawd-code** (31,349★) — A toolkit for the leaked Claude Code base, with             │
+│  automation scripts. Reflects the ongoing momentum in open AI exploitation — especially             │
+│  noteworthy for teams monitoring IP leaks and "shadow LLMs."                                       │
+│  [Read more](https://github.com/instructkr/clawd-code)                                             │
+│                                                                                                    │
+│  ## 📰 News & Discussions                                                                          │
+│                                                                                                    │
+│  **axios 1.14.1 and 0.30.4 on npm are compromised** (331 pts, 48 comments) — Two versions of      │
+│  Axios were compromised through a stolen maintainer's account, with malicious dependency            │
+│  injection found in published packages. Supply chain attacks remain rampant, highlighting the       │
+│  importance of strict CI/CD, dependency auditing, and package pinning for all JS projects.          │
+│  [Read more](https://reddit.com/r/programming/comments/1s8ct9i/)                                   │
+│                                                                                                    │
+│  ## 💡 TL;DR                                                                                       │
+│                                                                                                    │
+│  - axios (npm) suffered a supply chain compromise — dependency hygiene and ongoing vigilance        │
+│    for all open-source projects (especially in Node.js) is essential.                               │
+│  - Express is stable at 5.2.1; no urgent actions required.                                         │
+│                                                                                                    │
+╰──────────────────────────────────────── model: azure/gpt-4.1 ──────────────────────────────────────╯
+```
+
+*Actual output from `firsttoknow brief` — not mocked, not edited.*
+
 ## Why FirstToKnow > Everything Else
 
 | Tool | What it does | What it doesn't do |
@@ -76,6 +121,7 @@ uv run firsttoknow config model gpt-4o
 
 # Tell it what you care about
 uv run firsttoknow track litellm                  # PyPI package
+uv run firsttoknow track --npm express            # npm package
 uv run firsttoknow track --github BerriAI/litellm # GitHub repo
 uv run firsttoknow track --topic "AI agents"      # Broad topic
 uv run firsttoknow scan                           # Or just auto-detect everything
@@ -91,10 +137,11 @@ That's it. You're the first to know.
 ```bash
 # Track / Untrack
 uv run firsttoknow track <name>                 # Track a PyPI package
+uv run firsttoknow track --npm <name>           # Track an npm package
 uv run firsttoknow track --github owner/repo    # Track a GitHub repo
 uv run firsttoknow track --topic "AI agents"    # Track a topic
 uv run firsttoknow track litellm --version 1.40 # Track with current version
-uv run firsttoknow scan                         # Auto-detect from pyproject.toml
+uv run firsttoknow scan                         # Auto-detect from pyproject.toml / package.json
 uv run firsttoknow untrack <name>               # Stop tracking
 
 # Briefings
@@ -143,6 +190,10 @@ You run: firsttoknow brief
   │ PyPI │ │GitHub│ │  HN  │   Real API calls — not hallucinated data
   │  API │ │  API │ │ API  │
   └──────┘ └──────┘ └──────┘
+  ┌──────┐ ┌──────┐ ┌──────┐
+  │ npm  │ │Dev.to│ │Reddit│
+  │  API │ │  API │ │ API  │
+  └──────┘ └──────┘ └──────┘
               │
               ▼
    ┌─────────────────────┐
@@ -178,10 +229,10 @@ src/firsttoknow/
 ├── config.py           # Config & persistence (~/.firsttoknow/)
 ├── models.py           # Data models
 ├── renderer.py         # Rich terminal output
-├── scanner.py          # Dependency scanner
+├── scanner.py          # Dependency scanner (pyproject.toml, requirements.txt, package.json)
 └── agents/
     ├── agent.py        # ADK agent + runner
-    ├── _tools.py       # API fetchers (PyPI, GitHub, HN, Dev.to, Reddit)
+    ├── _tools.py       # API fetchers (PyPI, npm, GitHub, HN, Dev.to, Reddit)
     └── instructions/
         └── briefing.py # System prompt
 ```

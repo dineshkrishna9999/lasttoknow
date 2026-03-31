@@ -4,11 +4,11 @@
 
 ## v0.4.0 — Multi-Ecosystem
 
-- [ ] **npm support** — `firsttoknow track --npm express` (registry.npmjs.org API)
+- [x] **npm support** — `firsttoknow track --npm express` (registry.npmjs.org API)
 - [ ] **cargo support** — `firsttoknow track --cargo serde` (crates.io API)
 - [ ] **maven/gradle support** — `firsttoknow track --maven org.springframework:spring-boot` (search.maven.org API)
 - [ ] **go support** — `firsttoknow track --go github.com/gin-gonic/gin` (proxy.golang.org API)
-- [ ] Expand `scan` to detect `package.json`, `Cargo.toml`, `build.gradle`, `go.mod`
+- [x] Expand `scan` to detect `package.json` ~~, `Cargo.toml`, `build.gradle`, `go.mod`~~ (npm done; others TBD)
 
 ## v0.5.0 — Security
 

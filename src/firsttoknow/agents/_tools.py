@@ -52,6 +52,45 @@ class FirstToKnowTools:
             logger.warning("PyPI fetch failed for %s: %s", package_name, exc)
             return json.dumps({"error": f"Failed to fetch {package_name}: {exc}"})
 
+    def fetch_npm_releases(self, package_name: str) -> str:
+        """Fetch the latest release info for an npm package.
+
+        Args:
+            package_name: Name of the package on npm (e.g. "express", "react", "@babel/core").
+
+        Returns:
+            JSON string with version, summary, and recent versions.
+        """
+        url = f"https://registry.npmjs.org/{package_name}"
+        try:
+            resp = httpx.get(url, timeout=_TIMEOUT)
+            resp.raise_for_status()
+            data = resp.json()
+            dist_tags = data.get("dist-tags", {})
+            latest = dist_tags.get("latest", "")
+            versions = data.get("versions", {})
+            recent_versions = sorted(versions.keys(), reverse=True)[:5]
+            latest_info = versions.get(latest, {}) if latest else {}
+            repo = latest_info.get("repository", {})
+            repo_url = ""
+            if isinstance(repo, dict):
+                repo_url = repo.get("url", "")
+            elif isinstance(repo, str):
+                repo_url = repo
+            return json.dumps(
+                {
+                    "package": package_name,
+                    "latest_version": latest,
+                    "summary": latest_info.get("description", ""),
+                    "home_page": latest_info.get("homepage", "") or repo_url,
+                    "project_urls": {"repository": repo_url} if repo_url else {},
+                    "recent_versions": recent_versions,
+                }
+            )
+        except Exception as exc:
+            logger.warning("npm fetch failed for %s: %s", package_name, exc)
+            return json.dumps({"error": f"Failed to fetch {package_name}: {exc}"})
+
     def fetch_github_trending(self, language: str = "python", since: str = "weekly") -> str:
         """Fetch trending repositories from GitHub.
 
@@ -200,6 +239,7 @@ class FirstToKnowTools:
         """Return all tools as FunctionTool instances for ADK."""
         return [
             FunctionTool(self.fetch_pypi_releases),
+            FunctionTool(self.fetch_npm_releases),
             FunctionTool(self.fetch_github_trending),
             FunctionTool(self.fetch_hackernews_top),
             FunctionTool(self.fetch_devto_articles),

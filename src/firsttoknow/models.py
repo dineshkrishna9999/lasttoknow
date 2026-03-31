@@ -14,6 +14,7 @@ class ItemType(StrEnum):
     PYPI = "pypi"
     GITHUB = "github"
     TOPIC = "topic"
+    NPM = "npm"
 
 
 @dataclass

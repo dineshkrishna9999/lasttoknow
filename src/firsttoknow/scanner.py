@@ -1,11 +1,12 @@
 """Dependency scanner for FirstToKnow.
 
-Reads pyproject.toml or requirements.txt from a project directory
+Reads pyproject.toml, requirements.txt, or package.json from a project directory
 and extracts package names + pinned versions.
 """
 
 from __future__ import annotations
 
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -155,10 +156,57 @@ def _parse_dep_string(dep_str: str) -> ScannedDep | None:
     return ScannedDep(name=name, version=version)
 
 
+def _parse_npm_version(spec: str) -> str | None:
+    """Extract a version number from an npm semver spec.
+
+    Examples:
+        "^1.2.3"  → "1.2.3"
+        "~4.17.1" → "4.17.1"
+        ">=2.0.0" → "2.0.0"
+        "1.2.3"   → "1.2.3"
+        "*"       → None
+        "latest"  → None
+    """
+    if not spec:
+        return None
+    match = re.match(r"^\s*[\^~>=<]*\s*([0-9][0-9a-zA-Z.*+-]*)", spec)
+    return match.group(1) if match else None
+
+
+def scan_package_json(path: Path) -> list[ScannedDep]:
+    """Scan a package.json for dependencies.
+
+    Only reads the ``dependencies`` field (not ``devDependencies``).
+
+    Args:
+        path: Path to the project directory (not the file itself).
+
+    Returns:
+        List of dependencies found.
+    """
+    pkg_path = path / "package.json" if path.is_dir() else path
+
+    if not pkg_path.exists():
+        return []
+
+    try:
+        data = json.loads(pkg_path.read_text())
+    except Exception:
+        logger.warning("Failed to parse %s", pkg_path)
+        return []
+
+    deps: list[ScannedDep] = []
+    for name, version_spec in data.get("dependencies", {}).items():
+        version = _parse_npm_version(version_spec)
+        deps.append(ScannedDep(name=name, version=version))
+
+    return deps
+
+
 def scan_project(path: Path) -> list[ScannedDep]:
     """Scan a project directory for dependencies.
 
-    Tries pyproject.toml first, then requirements.txt.
+    Tries pyproject.toml first, then requirements.txt, then package.json.
 
     Args:
         path: Path to the project directory.
@@ -170,4 +218,8 @@ def scan_project(path: Path) -> list[ScannedDep]:
     if deps:
         return deps
 
-    return scan_requirements(path)
+    deps = scan_requirements(path)
+    if deps:
+        return deps
+
+    return scan_package_json(path)

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from firsttoknow.scanner import ScannedDep, scan_project, scan_pyproject, scan_requirements
+from firsttoknow.scanner import ScannedDep, scan_package_json, scan_project, scan_pyproject, scan_requirements
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -118,9 +118,77 @@ class TestScanProject:
         deps = scan_project(tmp_path)
         assert len(deps) == 2
 
+    def test_falls_back_to_package_json(self, tmp_path: Path) -> None:
+        pkg = tmp_path / "package.json"
+        pkg.write_text('{"dependencies": {"express": "^4.18.2"}}')
+        deps = scan_project(tmp_path)
+        assert len(deps) == 1
+        assert deps[0].name == "express"
+
+    def test_prefers_pyproject_over_package_json(self, tmp_path: Path) -> None:
+        toml = tmp_path / "pyproject.toml"
+        toml.write_text('[project]\ndependencies = ["litellm>=1.40.0"]\n')
+        pkg = tmp_path / "package.json"
+        pkg.write_text('{"dependencies": {"express": "^4.18.2"}}')
+        deps = scan_project(tmp_path)
+        assert len(deps) == 1
+        assert deps[0].name == "litellm"
+
     def test_returns_empty_for_empty_dir(self, tmp_path: Path) -> None:
         deps = scan_project(tmp_path)
         assert deps == []
+
+
+class TestScanPackageJson:
+    """Tests for scanning package.json."""
+
+    def test_scans_dependencies(self, tmp_path: Path) -> None:
+        pkg = tmp_path / "package.json"
+        pkg.write_text('{"dependencies": {"express": "^4.18.2", "react": "^18.2.0", "lodash": "^4.17.21"}}')
+        deps = scan_package_json(tmp_path)
+        assert len(deps) == 3
+        names = [d.name for d in deps]
+        assert "express" in names
+        assert "react" in names
+        assert "lodash" in names
+
+    def test_extracts_versions(self, tmp_path: Path) -> None:
+        pkg = tmp_path / "package.json"
+        pkg.write_text(
+            '{"dependencies": {"express": "^4.18.2", "lodash": "~4.17.21", "exact": "1.0.0", "range": ">=2.0.0"}}'
+        )
+        deps = scan_package_json(tmp_path)
+        by_name = {d.name: d for d in deps}
+        assert by_name["express"].version == "4.18.2"
+        assert by_name["lodash"].version == "4.17.21"
+        assert by_name["exact"].version == "1.0.0"
+        assert by_name["range"].version == "2.0.0"
+
+    def test_star_version_returns_none(self, tmp_path: Path) -> None:
+        pkg = tmp_path / "package.json"
+        pkg.write_text('{"dependencies": {"any-version": "*"}}')
+        deps = scan_package_json(tmp_path)
+        assert len(deps) == 1
+        assert deps[0].version is None
+
+    def test_returns_empty_for_missing_file(self, tmp_path: Path) -> None:
+        deps = scan_package_json(tmp_path)
+        assert deps == []
+
+    def test_returns_empty_for_no_deps(self, tmp_path: Path) -> None:
+        pkg = tmp_path / "package.json"
+        pkg.write_text('{"name": "my-app", "version": "1.0.0"}')
+        deps = scan_package_json(tmp_path)
+        assert deps == []
+
+    def test_ignores_dev_dependencies(self, tmp_path: Path) -> None:
+        pkg = tmp_path / "package.json"
+        pkg.write_text(
+            '{"dependencies": {"express": "^4.18.2"}, "devDependencies": {"jest": "^29.0.0", "eslint": "^8.0.0"}}'
+        )
+        deps = scan_package_json(tmp_path)
+        assert len(deps) == 1
+        assert deps[0].name == "express"
 
 
 class TestScannedDep:

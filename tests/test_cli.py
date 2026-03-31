@@ -61,6 +61,14 @@ class TestTrack:
         assert item is not None
         assert item.current_version == "1.40.0"
 
+    def test_track_npm_package(self, tmp_path: Path) -> None:
+        config = _make_config(tmp_path)
+        with patch("firsttoknow.cli._config", config):
+            result = runner.invoke(app, ["track", "--npm", "express"])
+        assert result.exit_code == 0
+        assert "express" in result.output
+        assert "npm" in result.output
+
 
 class TestUntrack:
     """Tests for the untrack command."""
@@ -225,3 +233,19 @@ class TestScan:
         item = config.get_item("litellm")
         assert item is not None
         assert item.current_version == "1.40.0"
+
+    def test_scan_package_json(self, tmp_path: Path) -> None:
+        config = _make_config(tmp_path)
+        project = tmp_path / "project"
+        project.mkdir()
+        pkg = project / "package.json"
+        pkg.write_text('{"dependencies": {"express": "^4.18.2", "react": "^18.2.0"}}')
+        with patch("firsttoknow.cli._config", config):
+            result = runner.invoke(app, ["scan", str(project)])
+        assert result.exit_code == 0
+        assert "express" in result.output
+        assert "react" in result.output
+        item = config.get_item("express")
+        assert item is not None
+        assert item.item_type.value == "npm"
+        assert item.current_version == "4.18.2"

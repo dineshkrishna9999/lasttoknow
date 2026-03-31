@@ -7,6 +7,7 @@ Commands:
     firsttoknow track litellm              Track a PyPI package
     firsttoknow track --github BerriAI/x   Track a GitHub repo
     firsttoknow track --topic "AI agents"  Track a topic
+    firsttoknow track --npm express        Track an npm package
     firsttoknow untrack litellm            Stop tracking
     firsttoknow list                       Show tracked items
     firsttoknow brief                      Get your AI briefing
@@ -95,6 +96,7 @@ def track(
     name: Annotated[str, typer.Argument(help="Package name, repo (owner/repo), or topic to track.")],
     github: Annotated[bool, typer.Option("--github", help="Track as a GitHub repo.")] = False,
     topic: Annotated[bool, typer.Option("--topic", help="Track as a topic.")] = False,
+    npm: Annotated[bool, typer.Option("--npm", help="Track as an npm package.")] = False,
     version: Annotated[str | None, typer.Option("--version", "-V", help="Current version you're using.")] = None,
 ) -> None:
     """Track a package, repo, or topic."""
@@ -104,6 +106,9 @@ def track(
     elif topic:
         item_type = ItemType.TOPIC
         source_url = None
+    elif npm:
+        item_type = ItemType.NPM
+        source_url = f"https://www.npmjs.com/package/{name}"
     else:
         item_type = ItemType.PYPI
         source_url = f"https://pypi.org/project/{name}/"
@@ -130,7 +135,7 @@ def untrack(
 def scan(
     path: Annotated[str, typer.Argument(help="Path to project directory (default: current dir).")] = ".",
 ) -> None:
-    """Auto-detect and track dependencies from pyproject.toml or requirements.txt."""
+    """Auto-detect and track dependencies from pyproject.toml, requirements.txt, or package.json."""
     from pathlib import Path
 
     from firsttoknow.scanner import scan_project
@@ -142,22 +147,42 @@ def scan(
         render_warning(f"No dependencies found in {project_path}")
         return
 
+    # Determine the ecosystem based on which file was found
+    is_npm = (
+        not (project_path / "pyproject.toml").exists()
+        and not (project_path / "requirements.txt").exists()
+        and (project_path / "package.json").exists()
+    )
+
     added = 0
     skipped = 0
     for dep in deps:
         try:
-            _config.add_item(
-                dep.name,
-                ItemType.PYPI,
-                source_url=f"https://pypi.org/project/{dep.name}/",
-                current_version=dep.version,
-            )
+            if is_npm:
+                _config.add_item(
+                    dep.name,
+                    ItemType.NPM,
+                    source_url=f"https://www.npmjs.com/package/{dep.name}",
+                    current_version=dep.version,
+                )
+            else:
+                _config.add_item(
+                    dep.name,
+                    ItemType.PYPI,
+                    source_url=f"https://pypi.org/project/{dep.name}/",
+                    current_version=dep.version,
+                )
             render_success(f"Tracking [bold]{dep.name}[/bold]" + (f" (v{dep.version})" if dep.version else ""))
             added += 1
         except ValueError:
             skipped += 1
 
-    source = "pyproject.toml" if (project_path / "pyproject.toml").exists() else "requirements.txt"
+    if is_npm:
+        source = "package.json"
+    elif (project_path / "pyproject.toml").exists():
+        source = "pyproject.toml"
+    else:
+        source = "requirements.txt"
     render_scan_results(found=len(deps), added=added, skipped=skipped, source=source)
 
 
@@ -185,15 +210,18 @@ def brief(
     resolved_model = _resolve_model(model)
     items = _config.tracked_items
     packages = [i.name for i in items if i.item_type == ItemType.PYPI]
+    npm_packages = [i.name for i in items if i.item_type == ItemType.NPM]
     topics = [i.name for i in items if i.item_type == ItemType.TOPIC]
 
     # Build the message for the agent
     parts = ["Give me a tech briefing."]
     if packages:
         parts.append(f"Check these PyPI packages for updates: {', '.join(packages)}.")
+    if npm_packages:
+        parts.append(f"Check these npm packages for updates: {', '.join(npm_packages)}.")
     if topics:
         parts.append(f"Also search for news about: {', '.join(topics)}.")
-    if not packages and not topics:
+    if not packages and not npm_packages and not topics:
         parts.append("I'm not tracking anything specific yet — give me general Python/AI trends.")
 
     message = " ".join(parts)

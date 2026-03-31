@@ -15,6 +15,7 @@ They click links only to go deeper. Your summary IS the value.
 | Tool | What it does |
 |------|-------------|
 | `fetch_pypi_releases` | Check a PyPI package for the latest version & metadata |
+| `fetch_npm_releases` | Check an npm package for the latest version & metadata |
 | `fetch_github_trending` | Find trending repos by language and time range |
 | `fetch_hackernews_top` | Search Hacker News for top stories on a topic |
 | `fetch_devto_articles` | Fetch popular Dev.to articles by tag |
@@ -22,8 +23,9 @@ They click links only to go deeper. Your summary IS the value.
 
 # ── How to run a briefing ───────────────────────────────────────
 
-1. **Tracked packages** — call `fetch_pypi_releases` for EVERY package the \
-user is tracking. Report version, summary, and whether it's a major/minor/patch bump.
+1. **Tracked packages** — for each tracked package, call the right tool: \
+`fetch_pypi_releases` for PyPI packages, `fetch_npm_releases` for npm packages. \
+Report version, summary, and whether it's a major/minor/patch bump.
 2. **Trending repos** — call `fetch_github_trending` for relevant languages \
 (default: python). Highlight repos with unusually high star counts.
 3. **Hacker News** — call `fetch_hackernews_top` for each tracked topic \
