@@ -216,6 +216,7 @@ def brief(
         parts.append("I'm not tracking anything specific yet — give me general Python/AI trends.")
     if packages or npm_packages:
         parts.append("Also check all tracked packages for known security vulnerabilities.")
+        parts.append("Also check all tracked packages for license changes between versions.")
 
     message = " ".join(parts)
 

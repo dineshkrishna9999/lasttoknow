@@ -24,6 +24,81 @@ def _error_response(context: str, exc: Exception) -> str:
     return json.dumps({"error": f"{context}: {exc}"})
 
 
+def _extract_pypi_license(info: dict[str, object]) -> str:
+    """Extract the best license string from PyPI package info.
+
+    Tries license_expression (SPDX), then license, then classifiers.
+    """
+    # Prefer license_expression (newest, SPDX-formatted)
+    expr = info.get("license_expression")
+    if expr and isinstance(expr, str) and expr.strip():
+        return expr.strip()
+
+    # Fall back to license field
+    raw = info.get("license")
+    if raw and isinstance(raw, str) and raw.strip():
+        return raw.strip()
+
+    # Fall back to classifiers
+    classifiers = info.get("classifiers", [])
+    if isinstance(classifiers, list):
+        for c in classifiers:
+            if isinstance(c, str) and c.startswith("License ::"):
+                # e.g. "License :: OSI Approved :: MIT License" → "MIT License"
+                parts = c.split(" :: ")
+                return parts[-1] if len(parts) >= 2 else c
+
+    return "UNKNOWN"
+
+
+def _extract_npm_license(version_data: dict[str, object]) -> str:
+    """Extract the license string from an npm version's metadata.
+
+    Handles both string and {"type": "MIT"} formats.
+    """
+    raw = version_data.get("license")
+    if isinstance(raw, str) and raw.strip():
+        return raw.strip()
+    if isinstance(raw, dict):
+        license_type = raw.get("type")
+        if isinstance(license_type, str) and license_type.strip():
+            return license_type.strip()
+
+    # Legacy: some old packages use "licenses" array
+    licenses = version_data.get("licenses")
+    if isinstance(licenses, list) and licenses:
+        first = licenses[0]
+        if isinstance(first, dict):
+            license_type = first.get("type")
+            if isinstance(license_type, str):
+                return license_type.strip()
+        if isinstance(first, str):
+            return first.strip()
+
+    return "UNKNOWN"
+
+
+def _get_previous_version(versions: list[str], latest: str) -> str | None:
+    """Find the version immediately before the latest in a sorted version list.
+
+    Args:
+        versions: List of version strings (sorted descending).
+        latest: The current latest version string.
+
+    Returns:
+        The previous version string, or None if there's only one version.
+    """
+    try:
+        idx = versions.index(latest)
+        if idx + 1 < len(versions):
+            return versions[idx + 1]
+    except ValueError:
+        # latest not in list; return second item if available
+        if len(versions) >= 2:
+            return versions[1]
+    return None
+
+
 class FirstToKnowTools:
     """Tools the FirstToKnow agent can call to fetch real-time data."""
 
@@ -315,12 +390,128 @@ class FirstToKnowTools:
         except Exception as exc:
             return _error_response(f"OSV fetch failed for {package_name} ({ecosystem})", exc)
 
+    def check_license_change(self, package_name: str, ecosystem: str = "pypi") -> str:
+        """Check if a package's license has changed between its latest and previous version.
+
+        Args:
+            package_name: Name of the package (e.g. "redis", "express").
+            ecosystem: Package ecosystem — "pypi" or "npm".
+
+        Returns:
+            JSON string with license info for latest and previous versions,
+            and whether the license changed.
+        """
+        ecosystem_lower = ecosystem.lower()
+        try:
+            if ecosystem_lower == "npm":
+                return self._check_npm_license(package_name)
+            return self._check_pypi_license(package_name)
+        except Exception as exc:
+            return _error_response(f"License check failed for {package_name} ({ecosystem})", exc)
+
+    def _check_pypi_license(self, package_name: str) -> str:
+        """Check license change for a PyPI package."""
+        # Get version list
+        resp = httpx.get(f"https://pypi.org/pypi/{package_name}/json", timeout=_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+        versions = sorted(data.get("releases", {}).keys(), reverse=True)
+        latest = data["info"]["version"]
+        previous = _get_previous_version(versions, latest)
+
+        latest_license = _extract_pypi_license(data["info"])
+
+        if not previous:
+            return json.dumps(
+                {
+                    "package": package_name,
+                    "ecosystem": "PyPI",
+                    "latest_version": latest,
+                    "latest_license": latest_license,
+                    "previous_version": None,
+                    "previous_license": None,
+                    "license_changed": False,
+                }
+            )
+
+        # Fetch previous version metadata
+        prev_resp = httpx.get(f"https://pypi.org/pypi/{package_name}/{previous}/json", timeout=_TIMEOUT)
+        prev_resp.raise_for_status()
+        prev_data = prev_resp.json()
+        previous_license = _extract_pypi_license(prev_data["info"])
+
+        changed = (
+            latest_license.lower() != previous_license.lower()
+            and latest_license != "UNKNOWN"
+            and previous_license != "UNKNOWN"
+        )
+
+        return json.dumps(
+            {
+                "package": package_name,
+                "ecosystem": "PyPI",
+                "latest_version": latest,
+                "latest_license": latest_license,
+                "previous_version": previous,
+                "previous_license": previous_license,
+                "license_changed": changed,
+            }
+        )
+
+    def _check_npm_license(self, package_name: str) -> str:
+        """Check license change for an npm package."""
+        resp = httpx.get(f"https://registry.npmjs.org/{package_name}", timeout=_TIMEOUT)
+        resp.raise_for_status()
+        data = resp.json()
+
+        dist_tags = data.get("dist-tags", {})
+        latest = dist_tags.get("latest", "")
+        versions_data = data.get("versions", {})
+        versions = sorted(versions_data.keys(), reverse=True)
+        previous = _get_previous_version(versions, latest)
+
+        latest_license = _extract_npm_license(versions_data.get(latest, {}))
+
+        if not previous:
+            return json.dumps(
+                {
+                    "package": package_name,
+                    "ecosystem": "npm",
+                    "latest_version": latest,
+                    "latest_license": latest_license,
+                    "previous_version": None,
+                    "previous_license": None,
+                    "license_changed": False,
+                }
+            )
+
+        previous_license = _extract_npm_license(versions_data.get(previous, {}))
+
+        changed = (
+            latest_license.lower() != previous_license.lower()
+            and latest_license != "UNKNOWN"
+            and previous_license != "UNKNOWN"
+        )
+
+        return json.dumps(
+            {
+                "package": package_name,
+                "ecosystem": "npm",
+                "latest_version": latest,
+                "latest_license": latest_license,
+                "previous_version": previous,
+                "previous_license": previous_license,
+                "license_changed": changed,
+            }
+        )
+
     def get_tools(self) -> list[FunctionTool]:
         """Return all tools as FunctionTool instances for ADK."""
         return [
             FunctionTool(self.fetch_pypi_releases),
             FunctionTool(self.fetch_npm_releases),
             FunctionTool(self.check_vulnerabilities),
+            FunctionTool(self.check_license_change),
             FunctionTool(self.fetch_github_trending),
             FunctionTool(self.fetch_hackernews_top),
             FunctionTool(self.fetch_devto_articles),

@@ -156,6 +156,7 @@ _TOOL_STATUS: dict[str, str] = {
     "fetch_hackernews_top": "Searching Hacker News",
     "fetch_devto_articles": "Browsing Dev.to articles",
     "fetch_reddit_posts": "Checking Reddit",
+    "check_license_change": "Checking license changes",
 }
 
 

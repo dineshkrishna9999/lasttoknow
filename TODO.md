@@ -13,7 +13,7 @@
 ## v0.5.0 — Security
 
 - [x] **CVE/OSV vulnerability alerts** — integrate with [osv.dev](https://osv.dev) API to check tracked packages for known vulnerabilities. Flag as 🔴 CRITICAL automatically.
-- [ ] **License change detection** — compare license field across versions. Catch cases like Redis moving from BSD to BSL. Flag license changes as 🔴 CRITICAL (legal implications for commercial use).
+- [x] **License change detection** — compare license field across versions. Catch cases like Redis moving from BSD to BSL. Flag license changes as 🔴 CRITICAL (legal implications for commercial use).
 
 ## v0.6.0 — Smarter AI
 

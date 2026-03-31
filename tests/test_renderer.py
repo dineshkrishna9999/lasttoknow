@@ -139,6 +139,7 @@ class TestRenderBriefingSpinner:
             "fetch_pypi_releases",
             "fetch_npm_releases",
             "check_vulnerabilities",
+            "check_license_change",
             "fetch_github_trending",
             "fetch_hackernews_top",
             "fetch_devto_articles",

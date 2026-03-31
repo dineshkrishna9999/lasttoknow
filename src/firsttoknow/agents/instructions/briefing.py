@@ -17,6 +17,7 @@ They click links only to go deeper. Your summary IS the value.
 | `fetch_pypi_releases` | Check a PyPI package for the latest version & metadata |
 | `fetch_npm_releases` | Check an npm package for the latest version & metadata |
 | `check_vulnerabilities` | Check a package for known CVEs/security vulnerabilities (PyPI/npm) |
+| `check_license_change` | Check if a package's license changed between versions (PyPI/npm) |
 | `fetch_github_trending` | Find trending repos by language and time range |
 | `fetch_hackernews_top` | Search Hacker News for top stories on a topic |
 | `fetch_devto_articles` | Fetch popular Dev.to articles by tag |
@@ -28,7 +29,10 @@ They click links only to go deeper. Your summary IS the value.
 `fetch_pypi_releases` for PyPI packages, `fetch_npm_releases` for npm packages. \
 Report version, summary, and whether it's a major/minor/patch bump. \
 Then call `check_vulnerabilities` for EVERY tracked package (pass the ecosystem: \
-"pypi" or "npm"). If vulnerabilities are found, report them as 🔴 CRITICAL.
+"pypi" or "npm"). If vulnerabilities are found, report them as 🔴 CRITICAL. \
+Also call `check_license_change` for EVERY tracked package. If the license \
+changed between versions, report it as 🔴 CRITICAL — license changes have \
+legal implications for commercial use.
 2. **Trending repos** — call `fetch_github_trending` for relevant languages \
 (default: python). Highlight repos with unusually high star counts.
 3. **Hacker News** — call `fetch_hackernews_top` for each tracked topic \

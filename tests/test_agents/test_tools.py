@@ -551,10 +551,236 @@ class TestCheckVulnerabilities:
         assert result["vulnerabilities"][0]["id"] == "CVE-2024-9999"
 
 
+class TestCheckLicenseChange:
+    """Tests for the license change detection tool."""
+
+    def setup_method(self) -> None:
+        self.tools = FirstToKnowTools()
+
+    def test_pypi_license_no_change(self) -> None:
+        """Same license across versions should report no change."""
+        latest_data = {
+            "info": {
+                "version": "5.0.0",
+                "license": "MIT",
+                "license_expression": "",
+                "classifiers": [],
+            },
+            "releases": {"5.0.0": [], "4.6.0": [], "4.5.0": []},
+        }
+        prev_data = {
+            "info": {
+                "version": "4.6.0",
+                "license": "MIT",
+                "license_expression": "",
+                "classifiers": [],
+            },
+        }
+
+        def _side_effect(url: str, **kwargs: object) -> MagicMock:
+            if "/4.6.0/" in url:
+                return _mock_response(prev_data)
+            return _mock_response(latest_data)
+
+        with patch("firsttoknow.agents._tools.httpx.get", side_effect=_side_effect):
+            result = json.loads(self.tools.check_license_change("redis", "pypi"))
+
+        assert result["package"] == "redis"
+        assert result["ecosystem"] == "PyPI"
+        assert result["latest_license"] == "MIT"
+        assert result["previous_license"] == "MIT"
+        assert result["license_changed"] is False
+
+    def test_pypi_license_changed(self) -> None:
+        """Different licenses should report a change."""
+        latest_data = {
+            "info": {
+                "version": "8.0.0",
+                "license": "Elastic License 2.0",
+                "license_expression": "",
+                "classifiers": [],
+            },
+            "releases": {"8.0.0": [], "7.17.0": [], "7.16.0": []},
+        }
+        prev_data = {
+            "info": {
+                "version": "7.17.0",
+                "license": "Apache-2.0",
+                "license_expression": "",
+                "classifiers": [],
+            },
+        }
+
+        def _side_effect(url: str, **kwargs: object) -> MagicMock:
+            if "/7.17.0/" in url:
+                return _mock_response(prev_data)
+            return _mock_response(latest_data)
+
+        with patch("firsttoknow.agents._tools.httpx.get", side_effect=_side_effect):
+            result = json.loads(self.tools.check_license_change("elasticsearch", "pypi"))
+
+        assert result["license_changed"] is True
+        assert result["latest_license"] == "Elastic License 2.0"
+        assert result["previous_license"] == "Apache-2.0"
+
+    def test_npm_license_no_change(self) -> None:
+        """npm: same license across versions should report no change."""
+        mock_data = {
+            "dist-tags": {"latest": "4.18.2"},
+            "versions": {
+                "4.18.2": {"license": "MIT"},
+                "4.18.1": {"license": "MIT"},
+                "4.17.0": {"license": "MIT"},
+            },
+        }
+        with patch("firsttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.check_license_change("express", "npm"))
+
+        assert result["ecosystem"] == "npm"
+        assert result["license_changed"] is False
+        assert result["latest_license"] == "MIT"
+
+    def test_npm_license_object_format(self) -> None:
+        """npm: handle license as {"type": "MIT"} object."""
+        mock_data = {
+            "dist-tags": {"latest": "2.0.0"},
+            "versions": {
+                "2.0.0": {"license": {"type": "ISC"}},
+                "1.0.0": {"license": {"type": "MIT"}},
+            },
+        }
+        with patch("firsttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_data)):
+            result = json.loads(self.tools.check_license_change("old-pkg", "npm"))
+
+        assert result["license_changed"] is True
+        assert result["latest_license"] == "ISC"
+        assert result["previous_license"] == "MIT"
+
+    def test_missing_license_returns_unknown(self) -> None:
+        """Missing license fields should report UNKNOWN without false positive."""
+        latest_data = {
+            "info": {
+                "version": "1.0.0",
+                "license": "",
+                "license_expression": "",
+                "classifiers": [],
+            },
+            "releases": {"1.0.0": [], "0.9.0": []},
+        }
+        prev_data = {
+            "info": {
+                "version": "0.9.0",
+                "license": "MIT",
+                "license_expression": "",
+                "classifiers": [],
+            },
+        }
+
+        def _side_effect(url: str, **kwargs: object) -> MagicMock:
+            if "/0.9.0/" in url:
+                return _mock_response(prev_data)
+            return _mock_response(latest_data)
+
+        with patch("firsttoknow.agents._tools.httpx.get", side_effect=_side_effect):
+            result = json.loads(self.tools.check_license_change("test-pkg", "pypi"))
+
+        # Should NOT flag as changed since one is UNKNOWN
+        assert result["license_changed"] is False
+        assert result["latest_license"] == "UNKNOWN"
+
+    def test_single_version_no_previous(self) -> None:
+        """Package with only one version should report no change."""
+        latest_data = {
+            "info": {
+                "version": "1.0.0",
+                "license": "MIT",
+                "license_expression": "",
+                "classifiers": [],
+            },
+            "releases": {"1.0.0": []},
+        }
+        with patch("firsttoknow.agents._tools.httpx.get", return_value=_mock_response(latest_data)):
+            result = json.loads(self.tools.check_license_change("new-pkg", "pypi"))
+
+        assert result["license_changed"] is False
+        assert result["previous_version"] is None
+
+    def test_returns_error_on_failure(self) -> None:
+        """HTTP failure should return an error response."""
+        with patch("firsttoknow.agents._tools.httpx.get", side_effect=Exception("Connection refused")):
+            result = json.loads(self.tools.check_license_change("test-pkg", "pypi"))
+
+        assert "error" in result
+        assert "Connection refused" in result["error"]
+
+    def test_pypi_license_expression_preferred(self) -> None:
+        """license_expression should be preferred over license field."""
+        latest_data = {
+            "info": {
+                "version": "2.0.0",
+                "license": "Some Old License Text",
+                "license_expression": "Apache-2.0",
+                "classifiers": [],
+            },
+            "releases": {"2.0.0": [], "1.0.0": []},
+        }
+        prev_data = {
+            "info": {
+                "version": "1.0.0",
+                "license": "Old Text",
+                "license_expression": "Apache-2.0",
+                "classifiers": [],
+            },
+        }
+
+        def _side_effect(url: str, **kwargs: object) -> MagicMock:
+            if "/1.0.0/" in url:
+                return _mock_response(prev_data)
+            return _mock_response(latest_data)
+
+        with patch("firsttoknow.agents._tools.httpx.get", side_effect=_side_effect):
+            result = json.loads(self.tools.check_license_change("test-pkg", "pypi"))
+
+        assert result["latest_license"] == "Apache-2.0"
+        assert result["license_changed"] is False
+
+    def test_pypi_classifier_fallback(self) -> None:
+        """Should fall back to classifiers when license and license_expression are empty."""
+        latest_data = {
+            "info": {
+                "version": "1.0.0",
+                "license": "",
+                "license_expression": "",
+                "classifiers": ["License :: OSI Approved :: MIT License"],
+            },
+            "releases": {"1.0.0": [], "0.9.0": []},
+        }
+        prev_data = {
+            "info": {
+                "version": "0.9.0",
+                "license": "",
+                "license_expression": "",
+                "classifiers": ["License :: OSI Approved :: BSD License"],
+            },
+        }
+
+        def _side_effect(url: str, **kwargs: object) -> MagicMock:
+            if "/0.9.0/" in url:
+                return _mock_response(prev_data)
+            return _mock_response(latest_data)
+
+        with patch("firsttoknow.agents._tools.httpx.get", side_effect=_side_effect):
+            result = json.loads(self.tools.check_license_change("classifier-pkg", "pypi"))
+
+        assert result["latest_license"] == "MIT License"
+        assert result["previous_license"] == "BSD License"
+        assert result["license_changed"] is True
+
+
 class TestGetTools:
     """Tests for the get_tools method."""
 
-    def test_returns_seven_tools(self) -> None:
+    def test_returns_eight_tools(self) -> None:
         tools = FirstToKnowTools()
         function_tools = tools.get_tools()
-        assert len(function_tools) == 7
+        assert len(function_tools) == 8
