@@ -15,6 +15,14 @@
   v0.4.0 — Never miss what matters in tech.
 ```
 
+<p align="center">
+  <img src="examples/image.png" alt="FirstToKnow briefing in action — package updates, CVE scanning, trending repos, and news" width="700">
+</p>
+
+<p align="center"><i>One command. Everything that matters about your stack — CVEs, breaking changes, trending repos, HN discussions.</i></p>
+
+> **🔥 Real story caught by FirstToKnow:** The screenshot above is from an actual briefing — FirstToKnow surfaced that **Claude Code's source code was accidentally exposed via a `.map` file in their npm registry** (1,883 pts on HN) alongside **5 Express CVEs** and trending repos like `openai/codex-plugin-cc` — all in one command, before most developers even heard about it. That's the point.
+
 ---
 
 ## The Problem
