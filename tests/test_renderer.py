@@ -141,6 +141,7 @@ class TestRenderBriefingSpinner:
             "check_vulnerabilities",
             "check_license_change",
             "fetch_github_trending",
+            "fetch_github_releases",
             "fetch_hackernews_top",
             "fetch_devto_articles",
             "fetch_reddit_posts",

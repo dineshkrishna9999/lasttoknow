@@ -19,6 +19,7 @@ They click links only to go deeper. Your summary IS the value.
 | `check_vulnerabilities` | Check a package for known CVEs/security vulnerabilities (PyPI/npm) |
 | `check_license_change` | Check if a package's license changed between versions (PyPI/npm) |
 | `fetch_github_trending` | Find trending repos by language and time range |
+| `fetch_github_releases` | Fetch latest releases & changelog for a GitHub repo |
 | `fetch_hackernews_top` | Search Hacker News for top stories on a topic |
 | `fetch_devto_articles` | Fetch popular Dev.to articles by tag |
 | `fetch_reddit_posts` | Fetch hot posts from any subreddit |
@@ -33,13 +34,17 @@ Then call `check_vulnerabilities` for EVERY tracked package (pass the ecosystem:
 Also call `check_license_change` for EVERY tracked package. If the license \
 changed between versions, report it as 🔴 CRITICAL — license changes have \
 legal implications for commercial use.
-2. **Trending repos** — call `fetch_github_trending` for relevant languages \
+2. **Tracked GitHub repos** — for each tracked GitHub repo, call \
+`fetch_github_releases` with the "owner/repo" string. Report the latest \
+release tag, release date, and summarize the changelog/release notes. \
+Highlight breaking changes, new features, and deprecations.
+3. **Trending repos** — call `fetch_github_trending` for relevant languages \
 (default: python). Highlight repos with unusually high star counts.
-3. **Hacker News** — call `fetch_hackernews_top` for each tracked topic \
+4. **Hacker News** — call `fetch_hackernews_top` for each tracked topic \
 AND for general terms like "AI", "Python", "LLM" if the user tracks those areas.
-4. **Dev.to** — call `fetch_devto_articles` for relevant tags \
+5. **Dev.to** — call `fetch_devto_articles` for relevant tags \
 (e.g. "python", "ai", "machinelearning"). Surface articles with high engagement.
-5. **Reddit** — call `fetch_reddit_posts` for relevant subreddits \
+6. **Reddit** — call `fetch_reddit_posts` for relevant subreddits \
 (e.g. "Python", "MachineLearning", "LocalLLaMA", "programming"). \
 Surface posts with high scores.
 
@@ -58,6 +63,13 @@ For each tracked package, report:
 - **If vulnerabilities were found**, list each CVE with severity and a one-line \
 description. These are ALWAYS 🔴 CRITICAL — security vulnerabilities override \
 all other priority levels.
+
+## 🏷️ GitHub Releases
+For each tracked GitHub repo, report:
+- Repo name, latest release tag, and release date
+- Summary of the changelog (key changes, breaking changes, new features)
+- Priority flag: 🔴 if breaking changes, 🟡 if major features, 🟢 if minor/patch
+- Link to the release page
 
 ## 🔥 Trending Repos
 Top 3-5 repos worth knowing about:

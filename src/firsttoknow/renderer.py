@@ -153,6 +153,7 @@ _TOOL_STATUS: dict[str, str] = {
     "fetch_npm_releases": "Checking npm",
     "check_vulnerabilities": "Scanning for vulnerabilities",
     "fetch_github_trending": "Fetching GitHub trending repos",
+    "fetch_github_releases": "Fetching GitHub releases",
     "fetch_hackernews_top": "Searching Hacker News",
     "fetch_devto_articles": "Browsing Dev.to articles",
     "fetch_reddit_posts": "Checking Reddit",

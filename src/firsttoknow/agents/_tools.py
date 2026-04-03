@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 import logging
+import os
+import re
 from datetime import datetime, timedelta
 
 import httpx
@@ -97,6 +99,45 @@ def _get_previous_version(versions: list[str], latest: str) -> str | None:
         if len(versions) >= 2:
             return versions[1]
     return None
+
+
+# GitHub URL patterns: https://github.com/owner/repo, git+https://..., git://...
+_GITHUB_RE = re.compile(
+    r"(?:https?://|git\+https?://|git://|ssh://git@)?github\.com[/:]"
+    r"(?P<owner>[^/]+)/(?P<repo>[^/.]+)(?:\.git)?",
+)
+
+_RELEASE_BODY_MAX = 2000
+_CHANGELOG_MAX = 4000
+
+
+def _parse_github_owner_repo(url: str) -> tuple[str, str] | None:
+    """Extract (owner, repo) from a GitHub URL.
+
+    Handles HTTPS, git+https, git://, and ssh URLs.
+    Returns None if the URL is not a GitHub URL.
+    """
+    m = _GITHUB_RE.search(url)
+    if m:
+        return m.group("owner"), m.group("repo")
+    return None
+
+
+def _github_headers() -> dict[str, str]:
+    """Build HTTP headers for GitHub API requests.
+
+    Includes Authorization if GITHUB_TOKEN env var is set.
+    """
+    headers: dict[str, str] = {"Accept": "application/vnd.github+json"}
+    token = os.environ.get("GITHUB_TOKEN")
+    if token:
+        headers["Authorization"] = f"token {token}"
+    return headers
+
+
+def _strip_v(tag: str) -> str:
+    """Strip leading 'v' from a version tag for comparison."""
+    return tag.lstrip("v")
 
 
 class FirstToKnowTools:
@@ -196,7 +237,7 @@ class FirstToKnowTools:
             "per_page": 10,
         }
         try:
-            resp = httpx.get("https://api.github.com/search/repositories", params=params, timeout=_TIMEOUT)
+            resp = httpx.get("https://api.github.com/search/repositories", params=params, headers=_github_headers(), timeout=_TIMEOUT)
             resp.raise_for_status()
             data = resp.json()
             repos = [
@@ -212,6 +253,69 @@ class FirstToKnowTools:
             return json.dumps({"trending": repos, "language": language, "since": since})
         except Exception as exc:
             return _error_response("GitHub trending fetch failed", exc)
+
+    def fetch_github_releases(self, owner_repo: str) -> str:
+        """Fetch the latest releases for a GitHub repository.
+
+        Args:
+            owner_repo: Repository in "owner/repo" format (e.g. "BerriAI/litellm")
+                        or a full GitHub URL.
+
+        Returns:
+            JSON string with latest release tag, name, date, body (changelog),
+            and a list of recent releases.
+        """
+        # Parse owner/repo — accept both "owner/repo" and full GitHub URLs
+        parsed = _parse_github_owner_repo(f"github.com/{owner_repo}")
+        if parsed is None:
+            parsed = _parse_github_owner_repo(owner_repo)
+        if parsed is None:
+            return _error_response(
+                f"Invalid repo format: '{owner_repo}'. Use 'owner/repo' or a GitHub URL.",
+                ValueError(owner_repo),
+            )
+
+        owner, repo = parsed
+        url = f"https://api.github.com/repos/{owner}/{repo}/releases"
+
+        try:
+            resp = httpx.get(url, params={"per_page": 5}, headers=_github_headers(), timeout=_TIMEOUT)
+            resp.raise_for_status()
+            releases = resp.json()
+
+            if not releases:
+                return json.dumps({
+                    "repo": f"{owner}/{repo}",
+                    "message": "No releases found. This repo may use tags instead of GitHub Releases.",
+                })
+
+            latest = releases[0]
+            body = latest.get("body", "") or ""
+            if len(body) > _RELEASE_BODY_MAX:
+                body = body[:_RELEASE_BODY_MAX] + "\n\n... (truncated)"
+
+            recent = [
+                {
+                    "tag": _strip_v(r.get("tag_name", "")),
+                    "name": r.get("name", ""),
+                    "published_at": (r.get("published_at", "") or "")[:10],
+                    "prerelease": r.get("prerelease", False),
+                }
+                for r in releases
+            ]
+
+            return json.dumps({
+                "repo": f"{owner}/{repo}",
+                "latest_tag": _strip_v(latest.get("tag_name", "")),
+                "latest_name": latest.get("name", ""),
+                "published_at": (latest.get("published_at", "") or "")[:10],
+                "prerelease": latest.get("prerelease", False),
+                "body": body,
+                "html_url": latest.get("html_url", ""),
+                "recent_releases": recent,
+            })
+        except Exception as exc:
+            return _error_response(f"GitHub releases fetch failed for {owner}/{repo}", exc)
 
     def fetch_hackernews_top(self, query: str = "AI", limit: int = 10) -> str:
         """Fetch top Hacker News stories matching a query.
@@ -513,6 +617,7 @@ class FirstToKnowTools:
             FunctionTool(self.check_vulnerabilities),
             FunctionTool(self.check_license_change),
             FunctionTool(self.fetch_github_trending),
+            FunctionTool(self.fetch_github_releases),
             FunctionTool(self.fetch_hackernews_top),
             FunctionTool(self.fetch_devto_articles),
             FunctionTool(self.fetch_reddit_posts),

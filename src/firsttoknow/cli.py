@@ -205,6 +205,7 @@ def brief(
     items = _config.tracked_items
     packages = [i.name for i in items if i.item_type == ItemType.PYPI]
     npm_packages = [i.name for i in items if i.item_type == ItemType.NPM]
+    github_repos = [i.name for i in items if i.item_type == ItemType.GITHUB]
     topics = [i.name for i in items if i.item_type == ItemType.TOPIC]
 
     # Build the message for the agent
@@ -213,9 +214,11 @@ def brief(
         parts.append(f"Check these PyPI packages for updates: {', '.join(packages)}.")
     if npm_packages:
         parts.append(f"Check these npm packages for updates: {', '.join(npm_packages)}.")
+    if github_repos:
+        parts.append(f"Check these GitHub repos for new releases: {', '.join(github_repos)}.")
     if topics:
         parts.append(f"Also search for news about: {', '.join(topics)}.")
-    if not packages and not npm_packages and not topics:
+    if not packages and not npm_packages and not github_repos and not topics:
         parts.append("I'm not tracking anything specific yet — give me general Python/AI trends.")
     if packages or npm_packages:
         parts.append("Also check all tracked packages for known security vulnerabilities.")

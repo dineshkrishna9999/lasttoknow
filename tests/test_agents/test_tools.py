@@ -777,10 +777,117 @@ class TestCheckLicenseChange:
         assert result["license_changed"] is True
 
 
+class TestFetchGithubReleases:
+    """Tests for the GitHub releases fetcher."""
+
+    def setup_method(self) -> None:
+        self.tools = FirstToKnowTools()
+
+    def test_successful_fetch(self) -> None:
+        mock_releases = [
+            {
+                "tag_name": "v1.63.0",
+                "name": "v1.63.0",
+                "published_at": "2026-03-28T10:00:00Z",
+                "prerelease": False,
+                "body": "## What's Changed\n- Added new model support",
+                "html_url": "https://github.com/BerriAI/litellm/releases/tag/v1.63.0",
+            },
+            {
+                "tag_name": "v1.62.0",
+                "name": "v1.62.0",
+                "published_at": "2026-03-21T10:00:00Z",
+                "prerelease": False,
+                "body": "Bug fixes",
+                "html_url": "https://github.com/BerriAI/litellm/releases/tag/v1.62.0",
+            },
+        ]
+        with patch("firsttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_releases)):
+            result = json.loads(self.tools.fetch_github_releases("BerriAI/litellm"))
+
+        assert result["repo"] == "BerriAI/litellm"
+        assert result["latest_tag"] == "1.63.0"
+        assert result["latest_name"] == "v1.63.0"
+        assert result["published_at"] == "2026-03-28"
+        assert result["prerelease"] is False
+        assert "Added new model" in result["body"]
+        assert len(result["recent_releases"]) == 2
+
+    def test_returns_error_on_failure(self) -> None:
+        with patch("firsttoknow.agents._tools.httpx.get", side_effect=Exception("404 Not Found")):
+            result = json.loads(self.tools.fetch_github_releases("nonexistent/repo"))
+
+        assert "error" in result
+        assert "404 Not Found" in result["error"]
+
+    def test_empty_releases(self) -> None:
+        with patch("firsttoknow.agents._tools.httpx.get", return_value=_mock_response([])):
+            result = json.loads(self.tools.fetch_github_releases("owner/repo"))
+
+        assert result["repo"] == "owner/repo"
+        assert "No releases found" in result["message"]
+
+    def test_truncates_long_body(self) -> None:
+        long_body = "x" * 3000
+        mock_releases = [
+            {
+                "tag_name": "v1.0.0",
+                "name": "v1.0.0",
+                "published_at": "2026-01-01T00:00:00Z",
+                "prerelease": False,
+                "body": long_body,
+                "html_url": "https://github.com/a/b/releases/tag/v1.0.0",
+            },
+        ]
+        with patch("firsttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_releases)):
+            result = json.loads(self.tools.fetch_github_releases("a/b"))
+
+        assert len(result["body"]) < 3000
+        assert result["body"].endswith("... (truncated)")
+
+    def test_strip_v_from_tags(self) -> None:
+        mock_releases = [
+            {
+                "tag_name": "v2.5.1",
+                "name": "Release 2.5.1",
+                "published_at": "2026-02-15T00:00:00Z",
+                "prerelease": False,
+                "body": "Patch release",
+                "html_url": "https://github.com/a/b/releases/tag/v2.5.1",
+            },
+        ]
+        with patch("firsttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_releases)):
+            result = json.loads(self.tools.fetch_github_releases("a/b"))
+
+        assert result["latest_tag"] == "2.5.1"
+        assert result["recent_releases"][0]["tag"] == "2.5.1"
+
+    def test_prerelease_flag(self) -> None:
+        mock_releases = [
+            {
+                "tag_name": "v3.0.0-beta.1",
+                "name": "v3.0.0 Beta 1",
+                "published_at": "2026-04-01T00:00:00Z",
+                "prerelease": True,
+                "body": "Beta release",
+                "html_url": "https://github.com/a/b/releases/tag/v3.0.0-beta.1",
+            },
+        ]
+        with patch("firsttoknow.agents._tools.httpx.get", return_value=_mock_response(mock_releases)):
+            result = json.loads(self.tools.fetch_github_releases("a/b"))
+
+        assert result["prerelease"] is True
+        assert result["recent_releases"][0]["prerelease"] is True
+
+    def test_invalid_format(self) -> None:
+        result = json.loads(self.tools.fetch_github_releases("not-a-valid-repo"))
+        assert "error" in result
+
+
 class TestGetTools:
     """Tests for the get_tools method."""
 
-    def test_returns_eight_tools(self) -> None:
+    def test_returns_nine_tools(self) -> None:
         tools = FirstToKnowTools()
         function_tools = tools.get_tools()
-        assert len(function_tools) == 8
+        assert len(function_tools) == 9
