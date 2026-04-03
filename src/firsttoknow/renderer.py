@@ -23,7 +23,7 @@ from firsttoknow import __version__
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
 
-    from firsttoknow.models import TrackedItem
+    from firsttoknow.models import GuardReport, TrackedItem
 
 console = Console()
 
@@ -158,6 +158,81 @@ _TOOL_STATUS: dict[str, str] = {
     "fetch_reddit_posts": "Checking Reddit",
     "check_license_change": "Checking license changes",
 }
+
+
+# ──────────────────────────────────────────────
+# Guard report
+# ──────────────────────────────────────────────
+
+
+def render_guard_report(report: GuardReport) -> None:
+    """Display the guard scan results as a clear, scannable report.
+
+    Design decision: stacked items, not a table
+    ────────────────────────────────────────────
+    v1 used a table — but findings have variable-length details and URLs.
+    Tables truncate that or look cramped. Instead, each finding gets its
+    own lines, like how `npm audit` or `cargo audit` display results.
+    Scannable, no truncation, room to breathe.
+    """
+    from firsttoknow.models import Severity
+
+    console.print()  # breathing room
+
+    # ── Header ────────────────────────────────
+    if report.passed:
+        console.print("[bold green]  🛡️  GUARD PASSED[/bold green]")
+    else:
+        console.print("[bold red]  🛡️  GUARD FAILED[/bold red]")
+
+    console.print()
+
+    # ── Each finding as its own block ─────────
+    severity_styles = {
+        Severity.CRITICAL: ("🚨", "red", "CRITICAL"),
+        Severity.WARNING: ("⚠️ ", "yellow", "WARNING"),
+        Severity.INFO: ("✅", "green", "OK"),
+    }
+
+    for finding in report.findings:
+        icon, color, label = severity_styles.get(
+            finding.severity, ("❓", "white", "UNKNOWN")
+        )
+
+        # Line 1: icon + package + severity label
+        console.print(f"  {icon} [bold]{finding.package}[/bold]  [{color}]{label}[/{color}]")
+
+        # Line 2: what was found (the human-readable title)
+        console.print(f"     {finding.title}")
+
+        # Line 3: details (if any)
+        if finding.details:
+            console.print(f"     [dim]{finding.details}[/dim]")
+
+        # Line 4: link (if any) — full URL, not truncated
+        if finding.url:
+            console.print(f"     [dim blue]{finding.url}[/dim blue]")
+
+        console.print()  # gap between findings
+
+    # ── Summary bar ───────────────────────────
+    parts = []
+    if report.critical_count:
+        parts.append(f"[bold red]{report.critical_count} critical[/bold red]")
+    if report.warning_count:
+        parts.append(f"[bold yellow]{report.warning_count} warning{'s' if report.warning_count != 1 else ''}[/bold yellow]")
+    if report.info_count:
+        parts.append(f"[bold green]{report.info_count} passed[/bold green]")
+
+    summary = "  " + " · ".join(parts)
+    console.print(f"  {'─' * 50}")
+    console.print(summary)
+    console.print()
+
+    # ── Actionable hint ───────────────────────
+    if not report.passed:
+        console.print("  [dim]Fix the critical issues above, then push again.[/dim]")
+        console.print()
 
 
 @contextmanager

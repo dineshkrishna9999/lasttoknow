@@ -17,6 +17,76 @@ class ItemType(StrEnum):
     NPM = "npm"
 
 
+# ──────────────────────────────────────────────
+# Guard models
+# ──────────────────────────────────────────────
+
+
+class Severity(StrEnum):
+    """How serious is this finding?
+
+    Why an enum instead of raw strings?
+    - Prevents typos ("CRTICAL" would be caught at import time)
+    - Enables comparison: Severity.CRITICAL > Severity.WARNING (StrEnum sorts alphabetically,
+      but we use explicit ordering in GuardReport.grade)
+    - IDE autocomplete works
+    """
+
+    CRITICAL = "critical"
+    WARNING = "warning"
+    INFO = "info"
+
+
+@dataclass
+class GuardFinding:
+    """A single issue found during a guard scan.
+
+    Think of this like one row in a report:
+    - "requests has 2 known CVEs" → severity=CRITICAL
+    - "colorama license changed MIT→GPL" → severity=CRITICAL
+    - "httpx: no issues found" → severity=INFO
+
+    Why a dataclass and not a dict?
+    - Type safety: mypy catches if you misspell 'severity' as 'serverity'
+    - Autocomplete: your IDE shows all fields
+    - Immutability-friendly: easier to reason about
+    """
+
+    package: str
+    ecosystem: str
+    severity: Severity
+    title: str
+    details: str = ""
+    url: str = ""
+
+
+@dataclass
+class GuardReport:
+    """The full result of a guard scan.
+
+    Contains all findings + a computed pass/fail verdict.
+    """
+
+    findings: list[GuardFinding] = field(default_factory=list)
+
+    @property
+    def passed(self) -> bool:
+        """Did the guard check pass? Fails if ANY critical finding exists."""
+        return not any(f.severity == Severity.CRITICAL for f in self.findings)
+
+    @property
+    def critical_count(self) -> int:
+        return sum(1 for f in self.findings if f.severity == Severity.CRITICAL)
+
+    @property
+    def warning_count(self) -> int:
+        return sum(1 for f in self.findings if f.severity == Severity.WARNING)
+
+    @property
+    def info_count(self) -> int:
+        return sum(1 for f in self.findings if f.severity == Severity.INFO)
+
+
 @dataclass
 class TrackedItem:
     """An item the user wants to track (package, repo, or topic)."""

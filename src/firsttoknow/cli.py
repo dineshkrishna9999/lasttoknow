@@ -11,6 +11,7 @@ Commands:
     firsttoknow untrack litellm            Stop tracking
     firsttoknow list                       Show tracked items
     firsttoknow brief                      Get your AI briefing
+    firsttoknow guard                      Check deps before pushing
     firsttoknow config model gpt-4o        Set default model
     firsttoknow config show                Show settings
 """
@@ -31,6 +32,7 @@ from firsttoknow.renderer import (
     render_briefing,
     render_briefing_spinner,
     render_error,
+    render_guard_report,
     render_scan_results,
     render_status,
     render_success,
@@ -238,6 +240,45 @@ def brief(
     # Update last_checked for all tracked items
     for item in items:
         _config.update_last_checked(item.name)
+
+
+# ──────────────────────────────────────────────
+# guard
+# ──────────────────────────────────────────────
+
+
+@app.command()
+def guard(
+    path: Annotated[str, typer.Argument(help="Path to project directory (default: current dir).")] = ".",
+) -> None:
+    """Scan your uncommitted changes for dependency risks before pushing.
+
+    Compares your current dependency files against the last git commit,
+    finds NEW dependencies, and checks each one for:
+    - Known security vulnerabilities (CVEs via OSV.dev)
+    - License changes between versions
+
+    Exit code 0 = all clear, exit code 1 = critical issues found.
+    """
+    from pathlib import Path
+
+    from firsttoknow.guard import run_guard
+
+    project_path = Path(path).resolve()
+
+    # Import here (like brief does) to keep CLI startup fast
+    try:
+        report = run_guard(project_path)
+    except Exception as exc:
+        render_error(f"Guard scan failed: {exc}")
+        raise typer.Exit(1) from exc
+
+    render_guard_report(report)
+
+    # Exit code matters! When used as a git hook, exit code 1
+    # tells git to ABORT the push. This is how we block bad code.
+    if not report.passed:
+        raise typer.Exit(1)
 
 
 # ──────────────────────────────────────────────
