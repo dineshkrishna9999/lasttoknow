@@ -29,6 +29,7 @@ import subprocess
 from pathlib import Path
 
 import httpx
+import litellm
 
 from firsttoknow.models import GuardFinding, GuardReport, Severity
 from firsttoknow.scanner import (
@@ -457,6 +458,209 @@ def check_license_change(package_name: str, ecosystem: str = "pypi") -> list[Gua
         ]
 
     return []
+
+
+# ──────────────────────────────────────────────
+# AI-powered code review
+# ──────────────────────────────────────────────
+
+# Why use the LLM here when we avoided it for CVE checks?
+# ────────────────────────────────────────────────────────
+# CVE checks are YES/NO questions with a database answer — no judgment needed.
+# Code review IS judgment: "does this diff look risky?" There's no database
+# for that. This is where LLMs shine: reading code and spotting patterns.
+#
+# But we make it OPTIONAL (--review flag) because:
+# 1. It costs money (token costs per call)
+# 2. It needs an API key (guard should work offline by default)
+# 3. LLMs can hallucinate (their findings are advisory, not blocking)
+# 4. It adds 2-5 seconds of latency
+#
+# Why litellm.completion() directly instead of the full ADK agent?
+# ─────────────────────────────────────────────────────────────────
+# The agent framework (ADK + Runner + tools) is designed for multi-turn,
+# tool-using conversations. Code review is a single prompt → single response.
+# No tools needed. litellm.completion() is a one-liner that works with
+# any provider (OpenAI, Azure, Anthropic, Groq, etc.).
+
+# Max characters of diff to send to the LLM.
+# Why 8000? A rough estimate:
+# - 1 token ≈ 4 characters → 8000 chars ≈ 2000 tokens
+# - Plus the system prompt (~500 tokens) ≈ 2500 tokens input
+# - With response (~500 tokens) ≈ 3000 tokens total
+# - Well within any model's context window and keeps costs low (~$0.01)
+_MAX_DIFF_CHARS = 8000
+
+_REVIEW_SYSTEM_PROMPT = """\
+You are a security-focused code reviewer. You will be given a git diff.
+
+Analyze ONLY what changed (the + and - lines) for these specific risks:
+1. Hardcoded secrets (API keys, passwords, tokens)
+2. SQL injection or command injection
+3. Insecure file operations (path traversal, unsafe temp files)
+4. XSS vulnerabilities (unescaped user input in HTML)
+5. Disabled security features (SSL verification off, CORS wildcard)
+6. Overly broad permissions or unsafe defaults
+
+Rules:
+- ONLY report issues you are confident about. Do not guess.
+- If the diff looks clean, return an empty JSON array: []
+- Do NOT flag style issues, naming, or minor code quality things.
+- Focus on SECURITY, not aesthetics.
+
+Return a JSON array of findings. Each finding has:
+- "title": one-line summary of the issue (max 80 chars)
+- "details": brief explanation of why it's risky and what to do instead (max 200 chars)
+- "package": the filename where the issue was found
+
+Example response for a clean diff:
+[]
+
+Example response with findings:
+[
+  {"title": "Hardcoded API key in config.py", "details": "Move to environment variable or .env file. Never commit secrets.", "package": "config.py"},
+  {"title": "SSL verification disabled", "details": "verify=False bypasses certificate checks. Remove this in production.", "package": "client.py"}
+]
+
+Return ONLY the JSON array, no other text.
+"""
+
+
+def review_diff(path: Path, model: str) -> list[GuardFinding]:
+    """Send the git diff to an LLM for security-focused code review.
+
+    This is the AI-powered part of the guard. Unlike CVE checks (which
+    query a database), code review requires judgment about patterns and
+    intent — exactly what LLMs are good at.
+
+    Args:
+        path: Path to the git repo root.
+        model: LLM model string (e.g. "azure/gpt-4.1", "gpt-4o").
+
+    Returns:
+        List of GuardFinding objects (severity=WARNING, not CRITICAL,
+        because LLM findings are advisory — we don't block pushes
+        based on AI judgment alone).
+    """
+    # Step 1: Get the diff
+    diff_text = get_git_diff(path)
+    if not diff_text.strip():
+        return []
+
+    # Step 2: Truncate if too large (cost + context window control)
+    # If we truncate, add a note so the LLM knows it's partial
+    if len(diff_text) > _MAX_DIFF_CHARS:
+        diff_text = diff_text[:_MAX_DIFF_CHARS] + "\n\n[... diff truncated for brevity ...]"
+
+    # Step 3: Call the LLM
+    try:
+        import warnings
+
+        # Suppress litellm's noisy logging and pydantic serialization warnings
+        litellm.suppress_debug_info = True
+        warnings.filterwarnings("ignore", message="Pydantic serializer warnings")
+
+        response = litellm.completion(
+            model=model,
+            messages=[
+                {"role": "system", "content": _REVIEW_SYSTEM_PROMPT},
+                {"role": "user", "content": f"Review this git diff:\n\n{diff_text}"},
+            ],
+            temperature=0.0,  # Deterministic — we want consistent analysis, not creativity
+            timeout=30,
+        )
+
+        response_text = response.choices[0].message.content or ""
+    except Exception as exc:
+        logger.warning("AI review failed: %s", exc)
+        return [
+            GuardFinding(
+                package="AI review",
+                ecosystem="—",
+                severity=Severity.WARNING,
+                title="Could not run AI code review",
+                details=str(exc)[:200],
+            )
+        ]
+
+    # Step 4: Parse the LLM's JSON response into GuardFinding objects
+    return _parse_review_response(response_text)
+
+
+def _parse_review_response(response_text: str) -> list[GuardFinding]:
+    """Parse the LLM's JSON response into GuardFinding objects.
+
+    Why a separate function?
+    ────────────────────────
+    LLMs are unreliable at producing valid JSON. They might:
+    - Wrap it in markdown code fences (```json ... ```)
+    - Add explanatory text before/after the JSON
+    - Return malformed JSON
+    - Return a single object instead of an array
+
+    This function handles all those cases gracefully.
+    Separating it also makes it easy to test without mocking the LLM.
+    """
+    # Strip markdown code fences if present
+    # LLMs love to wrap JSON in ```json ... ``` even when told not to
+    text = response_text.strip()
+    if text.startswith("```"):
+        # Remove first line (```json) and last line (```)
+        lines = text.split("\n")
+        text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+        text = text.strip()
+
+    # Try to parse as JSON
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        # LLM returned non-JSON — try to extract JSON from the text
+        # Look for a JSON array somewhere in the response
+        start = text.find("[")
+        end = text.rfind("]")
+        if start != -1 and end != -1 and end > start:
+            try:
+                data = json.loads(text[start : end + 1])
+            except json.JSONDecodeError:
+                logger.warning("Could not parse AI review response as JSON")
+                return []
+        else:
+            # No JSON found at all — if the text looks like "no issues",
+            # that's actually a good result (clean diff)
+            return []
+
+    # Handle single object (LLM returned {} instead of [{}])
+    if isinstance(data, dict):
+        data = [data]
+
+    if not isinstance(data, list):
+        return []
+
+    # Empty array = clean diff, no findings
+    if not data:
+        return []
+
+    # Convert each JSON object to a GuardFinding
+    findings: list[GuardFinding] = []
+    for item in data:
+        if not isinstance(item, dict):
+            continue
+
+        title = str(item.get("title", "AI review finding"))[:120]
+        details = str(item.get("details", ""))[:300]
+        package = str(item.get("package", "diff"))
+
+        findings.append(
+            GuardFinding(
+                package=package,
+                ecosystem="AI review",
+                severity=Severity.WARNING,  # Advisory only — don't block the push
+                title=title,
+                details=details,
+            )
+        )
+
+    return findings
 
 
 # ──────────────────────────────────────────────

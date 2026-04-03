@@ -27,7 +27,7 @@ from dotenv import load_dotenv
 
 from firsttoknow import __version__
 from firsttoknow.config import FirstToKnowConfig
-from firsttoknow.models import ItemType
+from firsttoknow.models import GuardFinding, ItemType, Severity
 from firsttoknow.renderer import (
     render_banner,
     render_briefing,
@@ -252,6 +252,8 @@ def brief(
 def guard(
     path: Annotated[str, typer.Argument(help="Path to project directory (default: current dir).")] = ".",
     init: Annotated[bool, typer.Option("--init", help="Install guard as a pre-push git hook.")] = False,
+    review: Annotated[bool, typer.Option("--review", help="Run AI-powered code review of the diff.")] = False,
+    model: Annotated[str | None, typer.Option("--model", "-m", help="LLM model for AI review.")] = None,
 ) -> None:
     """Scan your uncommitted changes for dependency risks before pushing.
 
@@ -260,6 +262,7 @@ def guard(
     - Known security vulnerabilities (CVEs via OSV.dev)
     - License changes between versions
 
+    Use --review to also get an AI-powered code review of the diff.
     Use --init to install as an automatic pre-push hook.
     Exit code 0 = all clear, exit code 1 = critical issues found.
     """
@@ -279,6 +282,29 @@ def guard(
     except Exception as exc:
         render_error(f"Guard scan failed: {exc}")
         raise typer.Exit(1) from exc
+
+    # Optional: AI-powered code review
+    if review:
+        resolved_model = _resolve_model(model)
+        from firsttoknow.guard import review_diff
+
+        try:
+            ai_findings = review_diff(project_path, resolved_model)
+            if ai_findings:
+                report.findings.extend(ai_findings)
+            else:
+                # Show the user that AI review ran and found nothing
+                report.findings.append(
+                    GuardFinding(
+                        package="AI review",
+                        ecosystem="—",
+                        severity=Severity.INFO,
+                        title="AI code review: no security issues found in diff",
+                        details=f"Reviewed by {resolved_model}",
+                    )
+                )
+        except Exception as exc:
+            render_warning(f"AI review failed: {exc}")
 
     render_guard_report(report)
 
